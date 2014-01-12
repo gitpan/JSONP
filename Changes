@@ -1,6 +1,9 @@
 Revision history for Perl extension JSONP.
 
-0.01  Fri Jan 10 22:00:47 2014
+0.51 
+    - fixed required version (was 5.14, now 5.8) and prerequisite modules in Makefile
+
+0.5  Fri Jan 10 22:00:47 2014
 	- original version; created by h2xs 1.23 with options
 		-AX --skip-exporter --use-new-tests -n JSONP
 
