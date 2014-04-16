@@ -6,7 +6,7 @@ use Digest::SHA;
 use strict;
 use JSON;
 use v5.8;
-our $VERSION = "0.51";
+our $VERSION = "0.60";
 
 =head1 NAME
 
@@ -77,7 +77,7 @@ just make sure I<run> it is the last element in chain.
 
 =back
 
-the module will call automatically the sub which name is specified in the req parameter of GET/POST request. JSONP will check if the sub exists in current script namespace by looking in typeglob and only in that case the sub will be called. The built-in policy about function names requires also a name starting by a lowercase letter, followed by up to 31 characters chosen between letters, numbers, and underscores. Since this module is intended to be used by AJAX calls, this will spare you to define routes and mappings between requests and back end code. In your subroutines you will therefore add all the data you want to the JSONP object instance in form of hashmap of any deep and complexity, JSONP will return that data automatically as JSON object with padding (by using the function name passed as 'callback' in GET/POST request, or using simply 'callback' as default) to the calling javascript.
+the module will call automatically the sub which name is specified in the req parameter of GET/POST request. JSONP will check if the sub exists in current script namespace by looking in typeglob and only in that case the sub will be called. The built-in policy about function names requires also a name starting by a lowercase letter, followed by up to 31 characters chosen between letters, numbers, and underscores. Since this module is intended to be used by AJAX calls, this will spare you to define routes and mappings between requests and back end code. In your subroutines you will therefore add all the data you want to the JSONP object instance in form of hashmap of any deep and complexity, JSONP will return that data automatically as JSON object with padding (by using the function name passed as 'callback' in GET/POST request, or using simply 'callback' as default) to the calling javascript. Please note that I<params> and I<session> keys on top of JSONP object hierarchy are reserved. See also "I<notation convenience features>" paragraph at the end of the POD.
 The jQuery call:
 
 	// note that jQuery will automatically chose a non-clashing callback name when you insert callback=? in request
@@ -117,6 +117,11 @@ or (the perl "array rule"):
 	$jsonp->{first}{second} = 'hello!';
 	print $jsonp->{first}{second};
 
+or even (deference ref):
+
+	$$jsonp{first}{second} = 'hello!';
+	print $$jsonp{first}{second};
+
 you can freely interleave above listed styles in order to access to elements of JSONP object. As usual, respect I<_private> variables if you don't know what you are doing.
 
 DONT'T DO THIS! :
@@ -126,7 +131,7 @@ DONT'T DO THIS! :
 
 =head1 VERSION
 
-	0.5
+	0.60
 
 =head1 DESCRIPTION
 
@@ -136,72 +141,6 @@ You have to provide the string name or sub ref (the module accepts either way) o
 So if you need to add a method/call/feature to your application you have only to add a sub with same name you will pass under I<req> parameter.
 
 =head2 METHODS
-
-=head3 new
-
-class constructor, it does not accept any parameter by user. The options have to be set by calling correspondant methods (see below)
-
-=head3 run
-
-executes the subroutine specified by req paramenter, if it exists, and returns the JSON output object to the calling browser. This have to be the last method called from JSONP object, because it will call the requested function and return the set object as JSON one.
-
-=head3 debug
-
-call this method before to call C<run> to enable debug mode in a test environment, basically this one will output pretty printed JSON instead of "compressed" one
-
-=head3 query
-
-call this method to retrieve a named parameter, $jsonp->query(paramenter_name) will return the value of paramenter_name from query string. The method called without arguments returns all parameters in hash form
-
-=head3 aaa
-
-pass to this method the reference (or the name, either way will work) of the function under you will manage AAA stuff, like session check, tracking and expiration, and ACL to exposed methods
-
-=head3 login
-
-pass to this method the reference (or the name, either way will work) of the function under you will manage the login process. The function will be called with the current session key (from cookie or automatically created). It will be your own business to save the key-value pair to the storage you choose (database, memcached, NoSQL, and so on). It is advised to keep the initial value associated with the key void, as the serialized I<session> branch of JSONP object will be automatically passed to your aaa function at the end or request cycle, so you should save it from that place. If you want to access/modify the session value do it through the I<session> branch via I<$jsonp-E<gt>session-E<gt>whatever(value)> or I<$jsonp-E<gt>{session}{whatever} = value> or I<$jsonp-E<gt>{session}-E<gt>{whatever} = value> calls.
-
-=head3 plain_json
-
-call this function to enable output in simple JSON format (not enclosed within jquery_callback_name()... ). Do this only when your script is on the same domain of static content. This method can be useful also during testing of your application.
-
-=head3 set_session_expiration
-
-call this method with desired expiration time for cookie in B<seconds>, the default behavior is to keep the cookie until the end of session (until the browser is closed).
-
-=head3 insecure
-
-call this method if you are going to deploy the script under plain http protocol instead of https. This method can be useful during testing of your application. 
-
-=head1 NOTES
-
-=head2 NOTATION CONVENIENCE FEATURES
-
-In order to achieve autovivification notation shortcut, this module does not make use of perlfilter but does rather some gimmick with AUTOLOAD. Because of this, when you are using the convenience shortcut notation you cannot use all the names of public methods of this module (such I<new>, I<import>, I<run>, and others previously listed on this document) as hash keys, and you must always use use hash keys beginning with a lowercase letter. You can still set/access hash branches of whatever name using the brace notation. It is nonetheless highly discouraged the usage of underscore beginning keys through brace notation, at least at the top level of response hash hierarchy, in order to avoid possible clashes with private variable members of this very module.
-
-=head2 MINIMAL REQUIREMENTS
-
-this module requires at least perl 5.8
-
-=head2 DEPENDENCIES
-
-JSON is the only non-core module used by this one, use of JSON::XS is strongly advised for the sake of performance. JSON::XS is been loaded transparently by JSON module when installed.
-
-=head1 SECURITY
-
-Remember to always:
-
-=over 4
-
-=item 1. use taint mode
-
-=item 2. use parametrized queries to access databases via DBI
-
-=item 3. avoid as much as possible I<qx>, I<system>, I<exec>, and so on
-
-=item 4. use SSL when you are keeping track of sessions
-
-=back
 
 =cut
 
@@ -217,6 +156,12 @@ sub import{
 	}
 }
 
+=head3 new
+
+class constructor, it does not accept any parameter by user. The options have to be set by calling correspondant methods (see below)
+
+=cut
+
 sub new{
 	my ($class) = @_;
 	my $self = {};
@@ -227,12 +172,18 @@ sub new{
 	bless $self, $class;
 }
 
+=head3 run
+
+executes the subroutine specified by req paramenter, if it exists, and returns the JSON output object to the calling browser. This have to be the last method called from JSONP object, because it will call the requested function and return the set object as JSON one.
+
+=cut
+
 sub run{
 	my $self = shift;
 	die "you have to provide an AAA function" unless $self->{_aaa_sub};
 	my $r = CGI->new;
-	$self->{_params} = $r->Vars;
-	my $req = $self->{_params}->{req};
+	$self->{params} = $r->Vars;
+	my $req = $self->{params}->{req};
 	$req =~ /^([a-z][0-9a-zA-Z_]{1,31})$/; $req = $1;
 	my $sid = $r->cookie('sid');
 	my $header = {-type => 'application/javascript', -charset => 'UTF-8'};
@@ -273,23 +224,51 @@ sub run{
 	}
 
 	print $r->header($header);
-	my $callback = $self->{_params}->{callback} || 'callback';
+	my $callback = $self->{params}->{callback} || 'callback';
 	print "$callback(" unless $self->{_plain_json};
 	print $self->{_json}->pretty($self->{_debug})->encode($self);
 	print ')' unless $self->{_plain_json};
 }
 
+=head3 debug
+
+call this method before to call C<run> to enable debug mode in a test environment, basically this one will output pretty printed JSON instead of "compressed" one. You can pass a switch to this method (that will be parsed as bool) to set it I<on> or I<off>. It could be useful if you want to pass a variable. If no switch (or undefined one) is passed, the switch will be set as true. Example:
+
+    $j->debug->run;
+
+is the same as:
+    
+    $j->debug(1)->run;
+
+=cut
+
 sub debug{
-	my $self = shift;
-	$self->{_debug} = 1;
+	my ($self, $switch) = @_;
+    $switch = 1 unless defined $switch;
+    $switch = !!$switch;
+	$self->{_debug} = $switch;
 	$self;
 }
 
+=head3 insecure
+
+call this method if you are going to deploy the script under plain http protocol instead of https. This method can be useful during testing of your application. You can pass a switch to this method (that will parsed as bool) to set it on or off. It could be useful if you want to pass a variable. If no switch (or undefined one) is passed, the switch will be set as true.
+
+=cut
+
 sub insecure{
-	my $self = shift;
-	$self->{_insecure_session} = 1;
+	my ($self, $switch) = @_;
+    $switch = 1 unless defined $switch;
+    $switch = !!$switch;
+	$self->{_insecure_session} = $switch;
 	$self;
 }
+
+=head3 set_session_expiration
+
+call this method with desired expiration time for cookie in B<seconds>, the default behavior is to keep the cookie until the end of session (until the browser is closed).
+
+=cut
 
 sub set_session_expiration{
 	my ($self, $expiration) = @_;
@@ -297,16 +276,36 @@ sub set_session_expiration{
 	$self;
 }
 
+=head3 query
+
+call this method to retrieve a named parameter, $jsonp->query(paramenter_name) will return the value of paramenter_name from query string. The method called without arguments returns all parameters in hash form
+
+=cut
+
 sub query{
 	my ($self, $param) = @_;
-	$param ? $self->{_params}->{$param} : $self->{_params};
+	$param ? $self->{params}->{$param} : $self->{params};
 }
 
+=head3 plain_json
+
+call this function to enable output in simple JSON format (not enclosed within jquery_callback_name()... ). Do this only when your script is on the same domain of static content. This method can be useful also during testing of your application. You can pass a switch to this method (that will parsed as bool) to set it on or off. It could be useful if you want to pass a variable. If no switch (or undefined one) is passed, the switch will be set as true. 
+
+=cut
+
 sub plain_json{
-	my $self = shift;
-	$self->{_plain_json} = 1;
+	my ($self, $switch) = @_;
+    $switch = 1 unless defined $switch;
+    $switch = !!$switch;
+	$self->{_plain_json} = $switch;
 	$self;
 }
+
+=head3 aaa
+
+pass to this method the reference (or the name, either way will work) of the function under you will manage AAA stuff, like session check, tracking and expiration, and ACL to exposed methods
+
+=cut
 
 sub aaa{
 	my ($self, $sub) = @_;
@@ -323,6 +322,12 @@ sub aaa{
 	}
 	$self;
 }
+
+=head3 login
+
+pass to this method the reference (or the name, either way will work) of the function under you will manage the login process. The function will be called with the current session key (from cookie or automatically created). It will be your own business to save the key-value pair to the storage you choose (database, memcached, NoSQL, and so on). It is advised to keep the initial value associated with the key void, as the serialized I<session> branch of JSONP object will be automatically passed to your aaa function at the end or request cycle, so you should save it from that place. If you want to access/modify the session value do it through the I<session> branch via I<$jsonp-E<gt>session-E<gt>whatever(value)> or I<$jsonp-E<gt>{session}{whatever} = value> or I<$jsonp-E<gt>{session}-E<gt>{whatever} = value> calls.
+
+=cut
 
 sub login{
 	my ($self, $sub) = @_;
@@ -372,5 +377,37 @@ AUTOLOAD{
 	}
 	goto &$AUTOLOAD;
 }
+
+=head1 NOTES
+
+=head2 NOTATION CONVENIENCE FEATURES
+
+In order to achieve autovivification notation shortcut, this module does not make use of perlfilter but does rather some gimmick with AUTOLOAD. Because of this, when you are using the convenience shortcut notation you cannot use all the names of public methods of this module (such I<new>, I<import>, I<run>, and others previously listed on this document) as hash keys, and you must always use use hash keys beginning with a lowercase letter. You can still set/access hash branches of whatever name using the brace notation. It is nonetheless highly discouraged the usage of underscore beginning keys through brace notation, at least at the top level of response hash hierarchy, in order to avoid possible clashes with private variable members of this very module.
+
+=head2 MINIMAL REQUIREMENTS
+
+this module requires at least perl 5.8
+
+=head2 DEPENDENCIES
+
+JSON is the only non-core module used by this one, use of JSON::XS is strongly advised for the sake of performance. JSON::XS is been loaded transparently by JSON module when installed.
+
+=head1 SECURITY
+
+Remember to always:
+
+=over 4
+
+=item 1. use taint mode
+
+=item 2. use parametrized queries to access databases via DBI
+
+=item 3. avoid as much as possible I<qx>, I<system>, I<exec>, and so on
+
+=item 4. use SSL when you are keeping track of sessions
+
+=back
+
+=cut
 
 1;
