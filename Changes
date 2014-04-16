@@ -1,9 +1,8 @@
 Revision history for Perl extension JSONP.
 
-0.60
+0.61
 	- now query params are also retrievable through an hash
 	- options methods are now callable with an optional bool argument
-	- added CSRF protection
 
 0.51 
 	- fixed required version (was 5.14, now 5.8) and prerequisite modules in Makefile

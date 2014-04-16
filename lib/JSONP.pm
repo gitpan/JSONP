@@ -6,7 +6,7 @@ use Digest::SHA;
 use strict;
 use JSON;
 use v5.8;
-our $VERSION = "0.60";
+our $VERSION = '0.61';
 
 =head1 NAME
 
@@ -131,7 +131,7 @@ DONT'T DO THIS! :
 
 =head1 VERSION
 
-	0.60
+	0.61
 
 =head1 DESCRIPTION
 
