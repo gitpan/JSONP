@@ -1,5 +1,8 @@
 Revision history for Perl extension JSONP.
 
+0.62
+	- bugfix: aaa was getting called for saving session even if the user is not authenticated
+	
 0.61
 	- now query params are also retrievable through an hash
 	- options methods are now callable with an optional bool argument

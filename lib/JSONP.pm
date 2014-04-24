@@ -6,7 +6,7 @@ use Digest::SHA;
 use strict;
 use JSON;
 use v5.8;
-our $VERSION = '0.61';
+our $VERSION = '0.62';
 
 =head1 NAME
 
@@ -209,6 +209,7 @@ sub run{
 	my $map = caller() . '::' . $req;
 	my $session = $self->{_aaa_sub}->($sid);
 	$self->{session} = $self->{_json}->pretty($self->{_debug})->decode($session || '{}');
+    my $authenticated = keys %{$self->{session}};
 	$self->_rebuild_session($self->{session});
 	if ($session && defined &$map || \&$map == $self->{_login_sub}) {
 		eval {
@@ -216,7 +217,7 @@ sub run{
 			&$map($sid);
 		};
 		$self->{debug}->{eval} = $@ if $self->{_debug};
-		$self->{_aaa_sub}->($sid, $self->{_json}->pretty($self->{_debug})->encode($self->{session}));
+		$self->{_aaa_sub}->($sid, $self->{_json}->pretty($self->{_debug})->encode($self->{session})) if $authenticated;
 	}
 	else{
 		$self->{error} = 1;
