@@ -1,5 +1,8 @@
 Revision history for Perl extension JSONP.
 
+0.70
+    - addition of "authenticated" boolean on root of json response    
+
 0.62
 	- bugfix: aaa was getting called for saving session even if the user is not authenticated
 	

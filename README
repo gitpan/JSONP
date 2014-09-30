@@ -1,4 +1,4 @@
-JSONP version 0.61
+JSONP
 ==================
 
 This module is intended to help you to build web applications based on lightweight JSON/JSONP perl web services on the server side and javascript on the client side. jQuery is higly advised.

@@ -6,7 +6,7 @@ use Digest::SHA;
 use strict;
 use JSON;
 use v5.8;
-our $VERSION = '0.62';
+our $VERSION = '0.70';
 
 =head1 NAME
 
@@ -26,7 +26,8 @@ If you prefer, you can use I<-E<gt>new> just passing nothing in I<use>.
 
 	...
 
-	sub yoursubname{
+	sub yoursubname
+    {
 		$j->table->fields($sh->{NAME});
 		$j->table->data($sh->fetchall_arrayref);
 	}
@@ -40,7 +41,8 @@ OR
 
 	...
 
-	sub yoursubname{
+	sub yoursubname
+    {
 		$j->table->fields($sh->{NAME});
 		$j->table->data($sh->fetchall_arrayref);
 	}
@@ -55,7 +57,8 @@ You must declare the instance variable, remember to use I<local our>.
 
 	...
 
-	sub yoursubname{
+	sub yoursubname
+    {
 		$j->table->fields($sh->{NAME});
 		$j->table->data($sh->fetchall_arrayref);
 	}
@@ -68,7 +71,8 @@ option setting methods allow for chained calls:
 
 	...
 
-	sub yoursubname{
+	sub yoursubname
+    {
 		$j->table->fields($sh->{NAME});
 		$j->table->data($sh->fetchall_arrayref);
 	}
@@ -129,10 +133,6 @@ DONT'T DO THIS! :
 	$jsonp->first(5);
 	$jsonp->first->second('something'); # Internal Server Error here
 
-=head1 VERSION
-
-	0.61
-
 =head1 DESCRIPTION
 
 The purpose of JSONP is to give an easy and fast way to build JSON only web services that can be used even from a different domain from which one they are hosted on. It is supplied only the object interface: this module does not export any symbol, apart the optional pointer to its own instance in the CGI environment.
@@ -144,7 +144,8 @@ So if you need to add a method/call/feature to your application you have only to
 
 =cut
 
-sub import{
+sub import
+{
 	my ($self, $name) = @_;
 	return if $ENV{MOD_PERL};
 	return unless $name;
@@ -162,11 +163,16 @@ class constructor, it does not accept any parameter by user. The options have to
 
 =cut
 
-sub new{
+our	$json = JSON->new;
+our	$json->utf8->allow_nonref->allow_blessed->convert_blessed;
+
+sub new
+{
 	my ($class) = @_;
 	my $self = {};
-	$self->{_json} = JSON->new;
-	$self->{_json}->utf8->allow_nonref->allow_blessed->convert_blessed;
+    $self->{authenticated} = 0;
+    $self->{error} = 0;
+    $self->{errors} = [];
 	#$self->{_mod_perl} = defined $ENV{MOD_PERL};
 	#$ENV{PATH} = '' if $self->{_taint_mode} = ${^TAINT};
 	bless $self, $class;
@@ -178,11 +184,12 @@ executes the subroutine specified by req paramenter, if it exists, and returns t
 
 =cut
 
-sub run{
+sub run
+{
 	my $self = shift;
 	die "you have to provide an AAA function" unless $self->{_aaa_sub};
 	my $r = CGI->new;
-	$self->{params} = $r->Vars;
+	$self->{params} = bless $r->Vars, ref $self;
 	my $req = $self->{params}->{req};
 	$req =~ /^([a-z][0-9a-zA-Z_]{1,31})$/; $req = $1;
 	my $sid = $r->cookie('sid');
@@ -190,7 +197,7 @@ sub run{
 	unless ( $sid ) {
 		my $h = Digest::SHA->new(256);
 		my @us = gettimeofday;
-		$h->add(@us, map($r->http($_) , $r->http() )) if	$self->{_insecure_session};
+		$h->add(@us, map($r->http($_) , $r->http() )) if	    $self->{_insecure_session};
 		$h->add(@us, map($r->https($_), $r->https())) unless	$self->{_insecure_session};
 		$sid = $h->hexdigest;
 		my $current_path = $r->url(-absolute=>1);
@@ -208,26 +215,25 @@ sub run{
 
 	my $map = caller() . '::' . $req;
 	my $session = $self->{_aaa_sub}->($sid);
-	$self->{session} = $self->{_json}->pretty($self->{_debug})->decode($session || '{}');
-    my $authenticated = keys %{$self->{session}};
+    $self->{session} = $session;
 	$self->_rebuild_session($self->{session});
+    $self->{authenticated} = !! scalar keys %{$self->{session}};
 	if ($session && defined &$map || \&$map == $self->{_login_sub}) {
 		eval {
 			no strict 'refs';
 			&$map($sid);
 		};
-		$self->{debug}->{eval} = $@ if $self->{_debug};
-		$self->{_aaa_sub}->($sid, $self->{_json}->pretty($self->{_debug})->encode($self->{session})) if $authenticated;
+		$self->{eval} = $@ if $self->{_debug};
+		$self->{_aaa_sub}->($sid, $json->pretty($self->{_debug})->encode($self->{session})) if $self->{authenticated};
 	}
 	else{
-		$self->{error} = 1;
-		push @{$self->{errors}}, 'forbidden';
+        $self->error('forbidden');
 	}
 
 	print $r->header($header);
 	my $callback = $self->{params}->{callback} || 'callback';
 	print "$callback(" unless $self->{_plain_json};
-	print $self->{_json}->pretty($self->{_debug})->encode($self);
+	print $json->pretty($self->{_debug})->encode($self);
 	print ')' unless $self->{_plain_json};
 }
 
@@ -243,7 +249,8 @@ is the same as:
 
 =cut
 
-sub debug{
+sub debug
+{
 	my ($self, $switch) = @_;
     $switch = 1 unless defined $switch;
     $switch = !!$switch;
@@ -257,7 +264,8 @@ call this method if you are going to deploy the script under plain http protocol
 
 =cut
 
-sub insecure{
+sub insecure
+{
 	my ($self, $switch) = @_;
     $switch = 1 unless defined $switch;
     $switch = !!$switch;
@@ -271,7 +279,8 @@ call this method with desired expiration time for cookie in B<seconds>, the defa
 
 =cut
 
-sub set_session_expiration{
+sub set_session_expiration
+{
 	my ($self, $expiration) = @_;
 	$self->{_session_expiration} = $expiration;
 	$self;
@@ -283,7 +292,8 @@ call this method to retrieve a named parameter, $jsonp->query(paramenter_name) w
 
 =cut
 
-sub query{
+sub query
+{
 	my ($self, $param) = @_;
 	$param ? $self->{params}->{$param} : $self->{params};
 }
@@ -294,7 +304,8 @@ call this function to enable output in simple JSON format (not enclosed within j
 
 =cut
 
-sub plain_json{
+sub plain_json
+{
 	my ($self, $switch) = @_;
     $switch = 1 unless defined $switch;
     $switch = !!$switch;
@@ -308,7 +319,8 @@ pass to this method the reference (or the name, either way will work) of the fun
 
 =cut
 
-sub aaa{
+sub aaa
+{
 	my ($self, $sub) = @_;
 	if (ref $sub eq 'CODE') {
 		$self->{_aaa_sub} = $sub;
@@ -330,7 +342,8 @@ pass to this method the reference (or the name, either way will work) of the fun
 
 =cut
 
-sub login{
+sub login
+{
 	my ($self, $sub) = @_;
 	if (ref $sub eq 'CODE') {
 		$self->{_login_sub} = $sub;
@@ -346,19 +359,35 @@ sub login{
 	$self;
 }
 
-sub _rebuild_session{
+=head3 error
+
+call this method in order to return an error message to the calling page. You can add as much messages you want, calling the method several times, it will be returned an array of messages to the calling page.
+
+=cut
+
+sub error
+{
+    my ($self, $message) = @_;
+    $self->{error} = 1;
+    push @{$self->{errors}}, $message;
+    $self;
+}
+
+sub _rebuild_session
+{
 	my ($self, $node) = @_;
 	return unless ref $node eq 'HASH';
 	bless $node, ref $self;
 	$self->_rebuild_session($node->{$_}) for keys %$node;
 }
 
-sub TO_JSON{
+sub TO_JSON
+{
 	my $self = shift;
 	my $output = {};
 	for(keys %{$self}){
 		next if $_ !~ /^[a-z]/;
-		#next if $_ eq 'session';
+		next if $_ eq 'session';
 		$output->{$_} = $self->{$_};
 	}
 	return $output;
@@ -367,7 +396,8 @@ sub TO_JSON{
 # avoid calling AUTOLOAD on destroy
 DESTROY{}
 
-AUTOLOAD{
+AUTOLOAD
+{
 	my $classname =  ref $_[0];
 	our $AUTOLOAD =~ /^${classname}::([a-zA-Z][a-zA-Z0-9_]*)$/;
 	my $key = $1;
