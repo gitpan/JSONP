@@ -6,7 +6,7 @@ use Digest::SHA;
 use strict;
 use JSON;
 use v5.8;
-our $VERSION = '0.70';
+our $VERSION = '0.71';
 
 =head1 NAME
 
@@ -163,8 +163,8 @@ class constructor, it does not accept any parameter by user. The options have to
 
 =cut
 
-our	$json = JSON->new;
-our	$json->utf8->allow_nonref->allow_blessed->convert_blessed;
+our $json = JSON->new;
+our $json->utf8->allow_nonref->allow_blessed->convert_blessed;
 
 sub new
 {
