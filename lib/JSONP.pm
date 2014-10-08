@@ -6,7 +6,7 @@ use Digest::SHA;
 use strict;
 use JSON;
 use v5.8;
-our $VERSION = '0.72';
+our $VERSION = '0.73';
 
 =head1 NAME
 
@@ -223,7 +223,8 @@ sub run
 	if ($session && defined &$map || \&$map == $self->{_login_sub}) {
 		eval {
 			no strict 'refs';
-			&$map($sid);
+			my $outcome = &$map($sid);
+            $self->{authenticated} = $outcome if \&$map == $self->{_login_sub};
 		};
 		$self->{eval} = $@ if $self->{_debug};
 		$self->{_aaa_sub}->($sid, $json->pretty($self->{_debug})->encode($self->{session})) if $self->{authenticated};

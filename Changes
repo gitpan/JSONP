@@ -1,5 +1,8 @@
 Revision history for Perl extension JSONP.
 
+0.73
+    - fix returned authentication status upon login (this time for real)
+
 0.72
     - fix returned authentication status upon login
 
