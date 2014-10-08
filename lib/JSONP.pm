@@ -6,7 +6,7 @@ use Digest::SHA;
 use strict;
 use JSON;
 use v5.8;
-our $VERSION = '0.71';
+our $VERSION = '0.72';
 
 =head1 NAME
 
@@ -137,7 +137,7 @@ DONT'T DO THIS! :
 
 The purpose of JSONP is to give an easy and fast way to build JSON only web services that can be used even from a different domain from which one they are hosted on. It is supplied only the object interface: this module does not export any symbol, apart the optional pointer to its own instance in the CGI environment.
 Once you have the instance of JSONP, you can build a response hash tree, containing whatever data structure, that will be automatically sent back as JSON object to the calling page. The built-in automatic cookie session keeping uses a secure SHA256 to build the session key. The related cookie is HttpOnly, Secure (only SSL) and with path set way down the one of current script (keep the authentication script in the root of your scripts path to share session among all scripts). For high trusted intranet environments a method to disable the Secure flag has been supplied. The automatically built cookie key will be long exactly 64 chars (hex format). 
-You have to provide the string name or sub ref (the module accepts either way) of your own I<aaa> and I<login> functions. The AAA (aaa) function will get called upon every request with the session key (retrieved from session cookie or newly created for brand new sessions) as argument. That way you will be free to implement routines for authentication, authorization, access, and session tracking that most suit your needs, together with rules for user/groups to access the methods you expose. Your AAA function must return the session string (if you previously saved it, read on) if a valid session exists under the given key. A return value evaluated as false by perl will result in a 'forbidden' response (you can add as much errors as you want in the I<errors> array of response object). If you want you can check the invoked method under the req parameter (see query method) in order to implement your own access policies. The AAA function will be called a second time just before the response to client will be sent out, with the session key as first argument, and a serialized string of the B<session> branch as second (as you would have modified it inside your called function). This way if your AAA function gets called with only one paramenter it is the begin of the request cycle, and you have to retrieve and check the session saved in your storage of chose (memcached, database, whatever), if it gets called with two arguments you can save the updated session object (already serialized as UTF-8 JSON) to the storage under the given key. The B<session> key of JSONP object will be reserved for session tracking, everything you will save in that branch will be passed serialized to your AAA function right before the response to client. It will be also populated after the serialized string you will return from your AAA function at the beginning of the cycle. The login function will get called with the current session key (from cookie or newly created) as parameter, you can retrieve the username and password passed by the query method, as all other parameters. This way you will be free to give whatever name you like to those two parameters.
+You have to provide the string name or sub ref (the module accepts either way) of your own I<aaa> and I<login> functions. The AAA (aaa) function will get called upon every request with the session key (retrieved from session cookie or newly created for brand new sessions) as argument. That way you will be free to implement routines for authentication, authorization, access, and session tracking that most suit your needs, together with rules for user/groups to access the methods you expose. Your AAA function must return the session string (if you previously saved it, read on) if a valid session exists under the given key. A return value evaluated as false by perl will result in a 'forbidden' response (you can add as much errors as you want in the I<errors> array of response object). B<Be sure you return a false value if the user is not authenticated!> otherwise you will give access to all users. If you want you can check the invoked method under the req parameter (see query method) in order to implement your own access policies. The AAA function will be called a second time just before the response to client will be sent out, with the session key as first argument, and a serialized string of the B<session> branch as second (as you would have modified it inside your called function). This way if your AAA function gets called with only one paramenter it is the begin of the request cycle, and you have to retrieve and check the session saved in your storage of chose (memcached, database, whatever), if it gets called with two arguments you can save the updated session object (already serialized as UTF-8 JSON) to the storage under the given key. The B<session> key of JSONP object will be reserved for session tracking, everything you will save in that branch will be passed serialized to your AAA function right before the response to client. It will be also populated after the serialized string you will return from your AAA function at the beginning of the cycle. The login function will get called with the current session key (from cookie or newly created) as parameter, you can retrieve the username and password passed by the query method, as all other parameters. This way you will be free to give whatever name you like to those two parameters. Return the outcome of login attempt in order to pass back to login javascript call the state of authentication. Whatever value that evaluates to true will be seen as "authentication ok", whatever value that Perl evaluates to false will be seen as "authentication failed". Subsequent calls (after authentication) will track the authentication status by mean of the session string you return from AAA function.
 So if you need to add a method/call/feature to your application you have only to add a sub with same name you will pass under I<req> parameter.
 
 =head2 METHODS
@@ -215,9 +215,11 @@ sub run
 
 	my $map = caller() . '::' . $req;
 	my $session = $self->{_aaa_sub}->($sid);
-    $self->{session} = $session;
-	$self->_rebuild_session($self->{session});
-    $self->{authenticated} = !! scalar keys %{$self->{session}};
+    $self->{authenticated} = !! $session;
+    if ($self->{authenticated}){
+        $self->{session} = $session;
+        $self->_rebuild_session($self->{session});
+    }
 	if ($session && defined &$map || \&$map == $self->{_login_sub}) {
 		eval {
 			no strict 'refs';
@@ -235,6 +237,7 @@ sub run
 	print "$callback(" unless $self->{_plain_json};
 	print $json->pretty($self->{_debug})->encode($self);
 	print ')' unless $self->{_plain_json};
+    $self;
 }
 
 =head3 debug
@@ -315,7 +318,7 @@ sub plain_json
 
 =head3 aaa
 
-pass to this method the reference (or the name, either way will work) of the function under you will manage AAA stuff, like session check, tracking and expiration, and ACL to exposed methods
+pass to this method the reference (or the name, either way will work) of the function under which you will manage AAA stuff, like session check, tracking and expiration, and ACL to exposed methods
 
 =cut
 
@@ -338,7 +341,7 @@ sub aaa
 
 =head3 login
 
-pass to this method the reference (or the name, either way will work) of the function under you will manage the login process. The function will be called with the current session key (from cookie or automatically created). It will be your own business to save the key-value pair to the storage you choose (database, memcached, NoSQL, and so on). It is advised to keep the initial value associated with the key void, as the serialized I<session> branch of JSONP object will be automatically passed to your aaa function at the end or request cycle, so you should save it from that place. If you want to access/modify the session value do it through the I<session> branch via I<$jsonp-E<gt>session-E<gt>whatever(value)> or I<$jsonp-E<gt>{session}{whatever} = value> or I<$jsonp-E<gt>{session}-E<gt>{whatever} = value> calls.
+pass to this method the reference (or the name, either way will work) of the function under which you will manage the login process. The function will be called with the current session key (from cookie or automatically created). It will be your own business to save the key-value pair to the storage you choose (database, memcached, NoSQL, and so on). It is advised to keep the initial value associated with the key void, as the serialized I<session> branch of JSONP object will be automatically passed to your aaa function at the end or request cycle, so you should save it from that place. If you want to access/modify the session value do it through the I<session> branch via I<$jsonp-E<gt>session-E<gt>whatever(value)> or I<$jsonp-E<gt>{session}{whatever} = value> or I<$jsonp-E<gt>{session}-E<gt>{whatever} = value> calls.
 
 =cut
 
