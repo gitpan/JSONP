@@ -6,7 +6,7 @@ use Digest::SHA;
 use strict;
 use JSON;
 use v5.8;
-our $VERSION = '0.74';
+our $VERSION = '0.75';
 
 =head1 NAME
 
@@ -163,16 +163,15 @@ class constructor, it does not accept any parameter by user. The options have to
 
 =cut
 
-our $json = JSON->new;
-our $json->utf8->allow_nonref->allow_blessed->convert_blessed;
+our $json = JSON->new->utf8->allow_blessed->convert_blessed;
 
 sub new
 {
 	my ($class) = @_;
 	my $self = {};
-    $self->{authenticated} = 0;
-    $self->{error} = 0;
-    $self->{errors} = [];
+	$self->{authenticated} = 0;
+	$self->{error} = 0;
+	$self->{errors} = [];
 	#$self->{_mod_perl} = defined $ENV{MOD_PERL};
 	#$ENV{PATH} = '' if $self->{_taint_mode} = ${^TAINT};
 	bless $self, $class;
@@ -215,22 +214,22 @@ sub run
 
 	my $map = caller() . '::' . $req;
 	my $session = $self->{_aaa_sub}->($sid);
-    $self->{authenticated} = !! $session;
-    if ($self->{authenticated}){
-        $self->{session} = $json->decode($session);
-        $self->_rebuild_session($self->{session});
-    }
+	$self->{authenticated} = !!$session;
+	if ($self->{authenticated}){
+		$self->{session} = $json->decode($session);
+		$self->_rebuild_session($self->{session});
+	}
 	if ($session && defined &$map || \&$map == $self->{_login_sub}) {
 		eval {
 			no strict 'refs';
 			my $outcome = &$map($sid);
-            $self->{authenticated} = $outcome if \&$map == $self->{_login_sub};
+			$self->{authenticated} = $outcome if \&$map == $self->{_login_sub};
 		};
 		$self->{eval} = $@ if $self->{_debug};
 		$self->{_aaa_sub}->($sid, $json->pretty($self->{_debug})->encode($self->{session} || {})) if $self->{authenticated};
 	}
 	else{
-        $self->error('forbidden');
+		$self->error('forbidden');
 	}
 
 	print $r->header($header);
@@ -238,7 +237,7 @@ sub run
 	print "$callback(" unless $self->{_plain_json};
 	print $json->pretty($self->{_debug})->encode($self);
 	print ')' unless $self->{_plain_json};
-    $self;
+	$self;
 }
 
 =head3 debug
@@ -248,7 +247,7 @@ call this method before to call C<run> to enable debug mode in a test environmen
     $j->debug->run;
 
 is the same as:
-    
+
     $j->debug(1)->run;
 
 =cut
@@ -256,8 +255,8 @@ is the same as:
 sub debug
 {
 	my ($self, $switch) = @_;
-    $switch = 1 unless defined $switch;
-    $switch = !!$switch;
+	$switch = 1 unless defined $switch;
+	$switch = !!$switch;
 	$self->{_debug} = $switch;
 	$self;
 }
@@ -271,8 +270,8 @@ call this method if you are going to deploy the script under plain http protocol
 sub insecure
 {
 	my ($self, $switch) = @_;
-    $switch = 1 unless defined $switch;
-    $switch = !!$switch;
+	$switch = 1 unless defined $switch;
+	$switch = !!$switch;
 	$self->{_insecure_session} = $switch;
 	$self;
 }
@@ -311,8 +310,8 @@ call this function to enable output in simple JSON format (not enclosed within j
 sub plain_json
 {
 	my ($self, $switch) = @_;
-    $switch = 1 unless defined $switch;
-    $switch = !!$switch;
+	$switch = 1 unless defined $switch;
+	$switch = !!$switch;
 	$self->{_plain_json} = $switch;
 	$self;
 }
@@ -371,10 +370,10 @@ call this method in order to return an error message to the calling page. You ca
 
 sub error
 {
-    my ($self, $message) = @_;
-    $self->{error} = 1;
-    push @{$self->{errors}}, $message;
-    $self;
+	my ($self, $message) = @_;
+	$self->{error} = 1;
+	push @{$self->{errors}}, $message;
+	$self;
 }
 
 sub _rebuild_session
