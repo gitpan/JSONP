@@ -6,7 +6,7 @@ use Digest::SHA;
 use strict;
 use JSON;
 use v5.8;
-our $VERSION = '0.76';
+our $VERSION = '0.77';
 
 =head1 NAME
 
