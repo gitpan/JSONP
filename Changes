@@ -1,6 +1,9 @@
 Revision history for Perl extension JSONP.
 
 0.75
+    - various bugfixes, addition of logout, html, and sendfile methods. Change on semantics of query method
+
+0.75
     - various bugfixes
 
 0.74

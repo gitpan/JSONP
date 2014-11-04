@@ -6,7 +6,7 @@ use Digest::SHA;
 use strict;
 use JSON;
 use v5.8;
-our $VERSION = '0.75';
+our $VERSION = '0.76';
 
 =head1 NAME
 
@@ -128,6 +128,8 @@ or even (deference ref):
 
 you can freely interleave above listed styles in order to access to elements of JSONP object. As usual, respect I<_private> variables if you don't know what you are doing.
 
+IMPORTANT NOTE: while using the convenience notation without braces you B<must> B<never> pass B<I<undef>>ined values, because this will result in creation of a node instead of a leaf as intended.
+
 DONT'T DO THIS! :
 
 	$jsonp->first(5);
@@ -172,6 +174,9 @@ sub new
 	$self->{authenticated} = 0;
 	$self->{error} = 0;
 	$self->{errors} = [];
+	$self->{_passthrough} = 0;
+	$self->{_mimetype} = 'text/html';
+	$self->{_html} = 0;
 	#$self->{_mod_perl} = defined $ENV{MOD_PERL};
 	#$ENV{PATH} = '' if $self->{_taint_mode} = ${^TAINT};
 	bless $self, $class;
@@ -189,6 +194,8 @@ sub run
 	die "you have to provide an AAA function" unless $self->{_aaa_sub};
 	my $r = CGI->new;
 	$self->{params} = bless $r->Vars, ref $self;
+	# this will enable us to give back the unblessed reference
+	$self->{_params} = $r->Vars;
 	my $req = $self->{params}->{req};
 	$req =~ /^([a-z][0-9a-zA-Z_]{1,31})$/; $req = $1;
 	my $sid = $r->cookie('sid');
@@ -219,6 +226,9 @@ sub run
 		$self->{session} = $json->decode($session);
 		$self->_rebuild_session($self->{session});
 	}
+
+	$$self{_cgi} = $r;
+
 	if ($session && defined &$map || \&$map == $self->{_login_sub}) {
 		eval {
 			no strict 'refs';
@@ -232,17 +242,79 @@ sub run
 		$self->error('forbidden');
 	}
 
-	print $r->header($header);
-	my $callback = $self->{params}->{callback} || 'callback';
-	print "$callback(" unless $self->{_plain_json};
-	print $json->pretty($self->{_debug})->encode($self);
-	print ')' unless $self->{_plain_json};
+	unless($self->{_passthrough}){
+		print $r->header($header);
+		my $callback = $self->{params}->{callback} || 'callback';
+		print "$callback(" unless $self->{_plain_json};
+		print $json->pretty($self->{_debug})->encode($self);
+		print ')' unless $self->{_plain_json};
+	} else {
+		$header->{'-type'} = $self->{_mimetype};
+		print $r->header($header);
+		if($self->{_html}){
+			print $self->{_html};
+		} else {
+			$header->{'-type'} = $self->{_mimetype};
+			print $self->_slurp($self->{_sendfile});
+		}
+	}
+	$self;
+}
+
+sub _slurp{
+	my ($self, $filename) = @_;
+	open my $fh, '<', $filename;
+	local $/;
+	<$fh>;
+}
+
+=head3 html
+
+use this method if you need to return HTML instead of JSON, pass the HTML string as argument
+
+	yoursubname
+	{
+		...
+		$j->html($html);
+	}
+
+=cut
+
+sub html
+{
+	my ($self, $html) = @_;
+	$self->{_passthrough} = 1;
+	$self->{_html} = $html;
+	$self;
+}
+
+=head3 sendfile
+
+use this method if you need to return a file instead of JSON, pass the full file path as as argument. Warning, to keep low dependencies, the mimetype identification works only under unix (file command)
+
+	yoursubname
+	{
+		...
+		$j->sendfile($fullfilepath);
+	}
+
+=cut
+
+sub sendfile
+{
+	my ($self, $filepath) = @_;
+	$self->{_passthrough} = 1;
+	# TODO move to File::Type module later on
+	my $mimetype = qx{file --mime-type -b $filepath};
+	chomp $mimetype;
+	$self->{_mimetype} = $mimetype;
+	$self->{_sendfile} = $filepath;
 	$self;
 }
 
 =head3 debug
 
-call this method before to call C<run> to enable debug mode in a test environment, basically this one will output pretty printed JSON instead of "compressed" one. You can pass a switch to this method (that will be parsed as bool) to set it I<on> or I<off>. It could be useful if you want to pass a variable. If no switch (or undefined one) is passed, the switch will be set as true. Example:
+call this method before to call C<run> to enable debug mode in a test environment, basically this one will output pretty printed JSON instead of "compressed" one. Furthermore with debug mode turned on the content of session will be returned to the calling page in its own json branch. You can pass a switch to this method (that will be parsed as bool) to set it I<on> or I<off>. It could be useful if you want to pass a variable. If no switch (or undefined one) is passed, the switch will be set as true. Example:
 
     $j->debug->run;
 
@@ -298,7 +370,7 @@ call this method to retrieve a named parameter, $jsonp->query(paramenter_name) w
 sub query
 {
 	my ($self, $param) = @_;
-	$param ? $self->{params}->{$param} : $self->{params};
+	$param ? $self->{_params}->{$param} : $self->{_params};
 }
 
 =head3 plain_json
@@ -362,6 +434,29 @@ sub login
 	$self;
 }
 
+=head3 logout
+
+pass to this method the reference (or the name, either way will work) of the function under which you will manage the logout process. The function will be called with the current session key (from cookie or automatically created). It will be your own business to delete the key-value pair from the storage you choose (database, memcached, NoSQL, and so on).
+
+=cut
+
+sub logout
+{
+	my ($self, $sub) = @_;
+	if (ref $sub eq 'CODE') {
+		$self->{_logout_sub} = $sub;
+	}
+	else {
+		my $map = caller() . '::' . $sub;
+		{
+			no strict 'refs';
+			die "given logout function does not exist" unless defined &$map;
+			$self->{_loout_sub} = \&$map;
+		}
+	}
+	$self;
+}
+
 =head3 error
 
 call this method in order to return an error message to the calling page. You can add as much messages you want, calling the method several times, it will be returned an array of messages to the calling page.
@@ -390,7 +485,7 @@ sub TO_JSON
 	my $output = {};
 	for(keys %{$self}){
 		next if $_ !~ /^[a-z]/;
-		next if $_ eq 'session';
+		next if $_ eq 'session' && ! $self->{_debug};
 		$output->{$_} = $self->{$_};
 	}
 	return $output;
@@ -407,7 +502,8 @@ AUTOLOAD
 	die "illegal key name, must be of ([a-zA-Z][a-zA-Z0-9_]* form\n$AUTOLOAD" unless $key;
 	{
 		no strict 'refs';
-		*{$AUTOLOAD} = sub{$_[1] ? ($_[0]->{$key} = $_[1]) : ($_[0]->{$key} ? $_[0]->{$key} : ($_[0]->{$key} = bless {}, $classname));};
+		# IMPORTANT NOTE: TRYING TO ASSIGN AN UNDEFINED VALUE TO A KEY WILL RESULT IN NODE CREATION WITH NO LEAFS INSTEAD OF A LEAF WITH UNDEFINED VALUE
+		*{$AUTOLOAD} = sub{defined $_[1] ? ($_[0]->{$key} = $_[1]) : (defined $_[0]->{$key} ? $_[0]->{$key} : ($_[0]->{$key} = bless {}, $classname));};
 	}
 	goto &$AUTOLOAD;
 }
