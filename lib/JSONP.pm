@@ -6,7 +6,7 @@ use Digest::SHA;
 use strict;
 use JSON;
 use v5.8;
-our $VERSION = '0.77';
+our $VERSION = '0.78';
 
 =head1 NAME
 
@@ -213,7 +213,7 @@ sub run
 			-value		=> $sid,
 			-path		=> $current_path,
 			-secure		=> !$self->{_insecure_session},
-			-httponly	=> 1 
+			-httponly	=> 1
 		};
 		$cookie->{-expires} = "+$$self{_session_expiration}s" if $self->{_session_expiration};
 		$header->{-cookie} = $r->cookie($cookie); 
@@ -482,6 +482,8 @@ sub _rebuild_session
 sub TO_JSON
 {
 	my $self = shift;
+	return 'true'  if ref $self eq 'SCALAR' && $$self == 1;
+	return 'false' if ref $self eq 'SCALAR' && $$self == 0;
 	my $output = {};
 	for(keys %{$self}){
 		next if $_ !~ /^[a-z]/;
