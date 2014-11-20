@@ -1,12 +1,13 @@
 package JSONP;
-
+use strict;
+use warnings;
 use Time::HiRes qw(gettimeofday);
 use CGI qw(:cgi -utf8);
 use Digest::SHA;
-use strict;
 use JSON;
 use v5.8;
-our $VERSION = '0.78';
+#use Want;
+our $VERSION = '0.83';
 
 =head1 NAME
 
@@ -27,9 +28,9 @@ If you prefer, you can use I<-E<gt>new> just passing nothing in I<use>.
 	...
 
 	sub yoursubname
-    {
-		$j->table->fields($sh->{NAME});
-		$j->table->data($sh->fetchall_arrayref);
+	{
+		$j->table->fields = $sh->{NAME};
+		$j->table->data = $sh->fetchall_arrayref;
 	}
 
 OR
@@ -42,9 +43,9 @@ OR
 	...
 
 	sub yoursubname
-    {
-		$j->table->fields($sh->{NAME});
-		$j->table->data($sh->fetchall_arrayref);
+	{
+		$j->table->fields = $sh->{NAME};
+		$j->table->data = $sh->fetchall_arrayref;
 	}
 
 =item * under mod_perl:
@@ -58,9 +59,9 @@ You must declare the instance variable, remember to use I<local our>.
 	...
 
 	sub yoursubname
-    {
-		$j->table->fields($sh->{NAME});
-		$j->table->data($sh->fetchall_arrayref);
+	{
+		$j->table->fields = $sh->{NAME};
+		$j->table->data = $sh->fetchall_arrayref;
 	}
 
 option setting methods allow for chained calls:
@@ -72,9 +73,9 @@ option setting methods allow for chained calls:
 	...
 
 	sub yoursubname
-    {
-		$j->table->fields($sh->{NAME});
-		$j->table->data($sh->fetchall_arrayref);
+	{
+		$j->table->fields = $sh->{NAME};
+		$j->table->data = $sh->fetchall_arrayref;
 	}
 
 just make sure I<run> it is the last element in chain.
@@ -93,12 +94,12 @@ processed by JSONP, will execute I<yoursubname> in your script if it exists, oth
 
 you can autovivify the response hash omiting braces
 
-	$jsonp->firstlevelhashvalue('I am a first level hash value');
-	$jsonp->first->second('I am a second level hash value');
+	$jsonp->firstlevelhashvalue = 'I am a first level hash value';
+	$jsonp->first->second = 'I am a second level hash value';
 
 you can then access hash values either with or without braces notation
 
-	$jsonp->firstlevelhashvalue(5);
+	$jsonp->firstlevelhashvalue = 5;
 	print $jsonp->firstlevelhashvalue; # will print 5
 
 it is equivalent to:
@@ -108,7 +109,7 @@ it is equivalent to:
 
 you can even build a tree:
 
-	$jsonp->first->second('hello!'); 
+	$jsonp->first->second = 'hello!'; 
 	print $jsonp->first->second; # will print "hello!"
 
 it is the same as: 
@@ -126,14 +127,37 @@ or even (deference ref):
 	$$jsonp{first}{second} = 'hello!';
 	print $$jsonp{first}{second};
 
-you can freely interleave above listed styles in order to access to elements of JSONP object. As usual, respect I<_private> variables if you don't know what you are doing.
+you can insert hashes at any level of structure  and they will become callable with the built-in convenience shortcut:
+
+	my $obj = {a => 1, b => 2};
+	$jsonp->first->second = $obj;
+	print $jsonp->first->second->b; # will print 2
+	$jsonp->first->second->b = 3;
+	print $jsonp->first->second->b; # will print 3
+
+you can insert also array at any level of structure  and the nodes (hashrefs) within resulting structure will become callable with the built-in convenience shortcut. You will need to call I<-<gt>>[index] in order to access them, though:
+
+	my $ary = [{a => 1}, 2];
+	$jsonp->first->second = $ary;
+	print $jsonp->first->second->[1]; # will print 2
+	print $jsonp->first->second->[0]->a; # will print 1
+	$jsonp->first->second->[0]->a = 9;
+	print $jsonp->first->second->[0]->a; # will print 9 now
+
+you can almost freely interleave above listed styles in order to access to elements of JSONP object. As usual, respect I<_private> variables if you don't know what you are doing. One value-leaf/object-node element set by the convenience notation shortcut will be read by normal hash access syntax, be aware that if you set a node/leaf with the traditional syntax, elements deeper that first one cannot be read via the convenience arrow-only feature. So it is a good practice to always use the convenience feature unless you have very specific needs and know and understand what you are doing.
 
 IMPORTANT NOTE: while using the convenience notation without braces you B<must> B<never> pass B<I<undef>>ined values, because this will result in creation of a node instead of a leaf as intended.
 
-DONT'T DO THIS! :
+WARNING: YOU CAN DO THIS ONLY IF YOU LOAD THE Want MODULE! :
 
 	$jsonp->first(5);
-	$jsonp->first->second('something'); # Internal Server Error here
+	$jsonp->first->second('something'); # Internal Server Error / runtime error here, unless you call the want method upon object creation
+
+so:
+
+	local our $jsonp = JSONP->new->want;
+
+if you want to be able to change leafs in new nodes. the C<-E<gt>want> call will load the optionally used Want module. Of course you must have Want module installed in your system.
 
 =head1 DESCRIPTION
 
@@ -165,21 +189,10 @@ class constructor, it does not accept any parameter by user. The options have to
 
 =cut
 
-our $json = JSON->new->utf8->allow_blessed->convert_blessed;
-
 sub new
 {
 	my ($class) = @_;
-	my $self = {};
-	$self->{authenticated} = 0;
-	$self->{error} = 0;
-	$self->{errors} = [];
-	$self->{_passthrough} = 0;
-	$self->{_mimetype} = 'text/html';
-	$self->{_html} = 0;
-	#$self->{_mod_perl} = defined $ENV{MOD_PERL};
-	#$ENV{PATH} = '' if $self->{_taint_mode} = ${^TAINT};
-	bless $self, $class;
+	bless {}, $class;
 }
 
 =head3 run
@@ -191,7 +204,16 @@ executes the subroutine specified by req paramenter, if it exists, and returns t
 sub run
 {
 	my $self = shift;
+	$self->{authenticated} = 0;
+	$self->{error} = 0;
+	$self->{errors} = [];
+	$self->{_passthrough} = 0;
+	$self->{_mimetype} = 'text/html';
+	$self->{_html} = 0;
+	#$self->{_mod_perl} = defined $ENV{MOD_PERL};
+	#$ENV{PATH} = '' if $self->{_taint_mode} = ${^TAINT};
 	die "you have to provide an AAA function" unless $self->{_aaa_sub};
+	my $json = JSON->new->utf8->allow_blessed->convert_blessed;
 	my $r = CGI->new;
 	$self->{params} = bless $r->Vars, ref $self;
 	# this will enable us to give back the unblessed reference
@@ -224,7 +246,7 @@ sub run
 	$self->{authenticated} = !!$session;
 	if ($self->{authenticated}){
 		$self->{session} = $json->decode($session);
-		$self->_rebuild_session($self->{session});
+		$self->_bless_tree($self->{session});
 	}
 
 	$$self{_cgi} = $r;
@@ -330,6 +352,39 @@ sub debug
 	$switch = 1 unless defined $switch;
 	$switch = !!$switch;
 	$self->{_debug} = $switch;
+	$self;
+}
+
+=head3 want
+
+this method will enable/disable the import of optional dependency module <I>Want to enable leaf values transformation in node without causing runtime errors. This will get working the following code instead of give a runtime error:
+
+    $j->first = 9;
+
+    ... do some things
+
+    $j->first->second = 9;
+    $j->first->second->third = 'Hi!';
+
+this will enable you to discard <I>second leaf value and append to it whatever data structure you like
+note that the default value for the switch is true, like other ones, so
+
+    $j->want->run;
+
+is the same as:
+
+    $j->want(1)->run;
+
+this method is chainable as others are.
+
+=cut
+
+sub want
+{
+	my ($self, $switch) = @_;
+	$switch = 1 unless defined $switch;
+	our $_want = !!$switch;
+	require Want if $_want;
 	$self;
 }
 
@@ -471,12 +526,57 @@ sub error
 	$self;
 }
 
-sub _rebuild_session
+=head3 graft
+
+call this method to append a JSON object as a perl subtree on a node. This is a native method, only function notation is supported, lvalue assignment notation is reserved to autovivification shortcut feature. Examples:
+
+	$j->subtree->graft('newbranchname', '{"name" : "JSON object", "count" : 2}');
+	print $j->subtree->newbranchname->name; # will print "JSON object"
+	$j->sublist->graft->('newbranchname', '[{"name" : "first one"}, {"name" : "second one"}]');
+	print $j->sublist->newbranchname->[1]->name; will print "second one"
+
+=cut
+
+sub graft
+{
+	my ($self, $name, $json) = @_;
+	my $tree = JSON->new->decode($json);
+	$self->$name = $tree;
+	$self;
+}
+
+=head3 serialize
+
+call this method to serialize and output a subtree:
+
+	$j->subtree->graft('newbranchname', '{"name" : "JSON object", "count" : 2}');
+	print $j->subtree->newbranchname->name; # will print "JSON object"
+	$j->sublist->graft->('newbranchname', '[{"name" : "first one"}, {"name" : "second one"}]');
+	print $j->sublist->newbranchname->[1]->name; will print "second one"
+	$j->subtree->newbranchname->graft('subtree', '{"name" : "some string", "count" : 4}');
+	print $j->subtree->newbranchname->subtree->serialize; # will print '{"name" : "some string", "count" : 4}' 
+
+=cut
+
+sub serialize
+{
+	my ($self) = @_;
+	JSON->new->utf8->allow_blessed->convert_blessed->encode($self);
+}
+
+sub _bless_tree
 {
 	my ($self, $node) = @_;
-	return unless ref $node eq 'HASH';
+	return unless ref $node eq 'HASH' || ref $node eq 'ARRAY';
+	my $isarray = ref $node eq 'ARRAY';
+	my $ishash  = ref $node eq 'HASH';
 	bless $node, ref $self;
-	$self->_rebuild_session($node->{$_}) for keys %$node;
+	if ($ishash){
+		$self->_bless_tree($node->{$_}) for keys %$node;
+	}
+	if ($isarray){
+		$self->_bless_tree($_) for @$node;
+	}
 }
 
 sub TO_JSON
@@ -488,6 +588,7 @@ sub TO_JSON
 	for(keys %{$self}){
 		next if $_ !~ /^[a-z]/;
 		next if $_ eq 'session' && ! $self->{_debug};
+		next if $_ eq 'params' && ! $self->{_debug};
 		$output->{$_} = $self->{$_};
 	}
 	return $output;
@@ -496,18 +597,22 @@ sub TO_JSON
 # avoid calling AUTOLOAD on destroy
 DESTROY{}
 
-AUTOLOAD
+sub AUTOLOAD : lvalue
 {
 	my $classname =  ref $_[0];
 	our $AUTOLOAD =~ /^${classname}::([a-zA-Z][a-zA-Z0-9_]*)$/;
 	my $key = $1;
 	die "illegal key name, must be of ([a-zA-Z][a-zA-Z0-9_]* form\n$AUTOLOAD" unless $key;
-	{
-		no strict 'refs';
-		# IMPORTANT NOTE: TRYING TO ASSIGN AN UNDEFINED VALUE TO A KEY WILL RESULT IN NODE CREATION WITH NO LEAFS INSTEAD OF A LEAF WITH UNDEFINED VALUE
-		*{$AUTOLOAD} = sub{defined $_[1] ? ($_[0]->{$key} = $_[1]) : (defined $_[0]->{$key} ? $_[0]->{$key} : ($_[0]->{$key} = bless {}, $classname));};
-	}
-	goto &$AUTOLOAD;
+	our $_want;
+	# Want::want will be called only if $_want is true, see want method
+	my $val = $_want && defined $_[0]->{$key} && ref $_[0]->{$key} eq '' && Want::want('REF OBJECT');
+	# TODO: recognise case of undef passed as scalar and avoid node creation instead
+	# TODO: enable if possible referencing array indexes without paretheses
+	# IMPORTANT NOTE: TRYING TO ASSIGN AN UNDEFINED VALUE TO A KEY WILL RESULT IN NODE CREATION WITH NO LEAFS INSTEAD OF A LEAF WITH UNDEFINED VALUE
+	$_[0]->{$key} = $_[1] || $_[0]->{$key} || bless {}, $classname;
+	$_[0]->_bless_tree($_[0]->{$key}) if ref $_[0]->{$key} eq 'HASH' || ref $_[0]->{$key} eq 'ARRAY';
+	$_[0]->{$key} = bless {}, $classname if $val;
+	$_[0]->{$key};
 }
 
 =head1 NOTES

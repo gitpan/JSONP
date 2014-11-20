@@ -1,5 +1,23 @@
 Revision history for Perl extension JSONP.
 
+0.83
+    - addition of serialize method, to directly export an object branch into a JSON string
+
+0.82
+    - addition of graft method, to directly slurp JSON strings as subtree objects
+
+0.81
+    - automatic bless upon assignment of array structures too
+
+0.80
+    - made Want module usage optional
+    - made contructor as lightweight as possible deferring properties settings to last minute
+    - decoupled Want module usage from constructor
+    - automatic bless of trees assigned with lvalue notation
+
+0.79
+    - added lvalue syntax for leaf assignments, leaf-to-node substituction by Want module usage, non-web instantiation
+
 0.78
     - added TO_JSON for booleans and a warnings about using undefs with convenience notation feature
 
