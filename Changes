@@ -1,5 +1,14 @@
 Revision history for Perl extension JSONP.
 
+0.86
+    - POD documentation updates
+
+0.85
+    - found and resolved bug that was returning blessed objects instead of actual leaf value, in special "Want" case, resolved bug about undefined _debug attribute
+
+0.84
+    - found and resolved the dreaded bug that was turning null strings in blessed objects, some other code cleanup
+
 0.83
     - addition of serialize method, to directly export an object branch into a JSON string
 

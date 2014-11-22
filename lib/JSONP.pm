@@ -7,7 +7,7 @@ use Digest::SHA;
 use JSON;
 use v5.8;
 #use Want;
-our $VERSION = '0.83';
+our $VERSION = '0.86';
 
 =head1 NAME
 
@@ -90,7 +90,7 @@ The jQuery call:
 		//your callback code
 	});
 
-processed by JSONP, will execute I<yoursubname> in your script if it exists, otherwise will return a JSONP codified error. The default error objext returned by this module in its root level has a boolean "error" flag and an "errors" array where you can put a list of your customized errors. The structure of the elements of the array is of course free so you can adapt it to your needs and frameworks.
+processed by JSONP, will execute I<yoursubname> in your script if it exists, otherwise will return a JSONP codified error. The default error object returned by this module in its root level has a boolean "error" flag and an "errors" array where you can put a list of your customized errors. The structure of the elements of the array is of course free so you can adapt it to your needs and frameworks.
 
 you can autovivify the response hash omiting braces
 
@@ -135,7 +135,7 @@ you can insert hashes at any level of structure  and they will become callable w
 	$jsonp->first->second->b = 3;
 	print $jsonp->first->second->b; # will print 3
 
-you can insert also array at any level of structure  and the nodes (hashrefs) within resulting structure will become callable with the built-in convenience shortcut. You will need to call I<-<gt>>[index] in order to access them, though:
+you can insert also array at any level of structure  and the nodes (hashrefs) within resulting structure will become callable with the built-in convenience shortcut. You will need to call C<-E<gt>[index]> in order to access them, though:
 
 	my $ary = [{a => 1}, 2];
 	$jsonp->first->second = $ary;
@@ -204,21 +204,20 @@ executes the subroutine specified by req paramenter, if it exists, and returns t
 sub run
 {
 	my $self = shift;
-	$self->{authenticated} = 0;
-	$self->{error} = 0;
-	$self->{errors} = [];
+	$self->{_authenticated} = 0;
+	$self->{error} = \0;
+	$self->errors = [];
 	$self->{_passthrough} = 0;
 	$self->{_mimetype} = 'text/html';
 	$self->{_html} = 0;
-	#$self->{_mod_perl} = defined $ENV{MOD_PERL};
+	$self->{_mod_perl} = defined $ENV{MOD_PERL};
 	#$ENV{PATH} = '' if $self->{_taint_mode} = ${^TAINT};
 	die "you have to provide an AAA function" unless $self->{_aaa_sub};
-	my $json = JSON->new->utf8->allow_blessed->convert_blessed;
 	my $r = CGI->new;
-	$self->{params} = bless $r->Vars, ref $self;
 	# this will enable us to give back the unblessed reference
-	$self->{_params} = $r->Vars;
-	my $req = $self->{params}->{req};
+	my %params = $r->Vars;
+	$self->params = \%params;
+	my $req = $self->params->req;
 	$req =~ /^([a-z][0-9a-zA-Z_]{1,31})$/; $req = $1;
 	my $sid = $r->cookie('sid');
 	my $header = {-type => 'application/javascript', -charset => 'UTF-8'};
@@ -243,32 +242,37 @@ sub run
 
 	my $map = caller() . '::' . $req;
 	my $session = $self->{_aaa_sub}->($sid);
-	$self->{authenticated} = !!$session;
-	if ($self->{authenticated}){
-		$self->{session} = $json->decode($session);
-		$self->_bless_tree($self->{session});
+	$self->{_authenticated} = !!$session;
+	if($self->{_authenticated}){
+		$self->graft('session', $session)
+	} else {
+		$self->session = {};
 	}
 
 	$$self{_cgi} = $r;
 
-	if ($session && defined &$map || \&$map == $self->{_login_sub}) {
+	if (!!$session && defined &$map || \&$map == $self->{_login_sub}) {
 		eval {
 			no strict 'refs';
 			my $outcome = &$map($sid);
-			$self->{authenticated} = $outcome if \&$map == $self->{_login_sub};
+			$self->{_authenticated} = $outcome if \&$map == $self->{_login_sub};
 		};
 		$self->{eval} = $@ if $self->{_debug};
-		$self->{_aaa_sub}->($sid, $json->pretty($self->{_debug})->encode($self->{session} || {})) if $self->{authenticated};
+		$self->{_aaa_sub}->($sid, $self->session->serialize) if $self->{_authenticated};
 	}
 	else{
 		$self->error('forbidden');
+		$self->{_authenticated} = 0;
 	}
+
+	# give a nice JSON "true"/"false" output for authentication
+	$self->authenticated = $self->{_authenticated} ? \1 : \0;
 
 	unless($self->{_passthrough}){
 		print $r->header($header);
-		my $callback = $self->{params}->{callback} || 'callback';
+		my $callback = $self->params->callback || 'callback';
 		print "$callback(" unless $self->{_plain_json};
-		print $json->pretty($self->{_debug})->encode($self);
+		print $self->serialize;
 		print ')' unless $self->{_plain_json};
 	} else {
 		$header->{'-type'} = $self->{_mimetype};
@@ -357,7 +361,7 @@ sub debug
 
 =head3 want
 
-this method will enable/disable the import of optional dependency module <I>Want to enable leaf values transformation in node without causing runtime errors. This will get working the following code instead of give a runtime error:
+this method will enable/disable the import of optional dependency module I<Want> to enable leaf values transformation in node without causing runtime errors. This will get working the following code instead of give a runtime error:
 
     $j->first = 9;
 
@@ -366,8 +370,7 @@ this method will enable/disable the import of optional dependency module <I>Want
     $j->first->second = 9;
     $j->first->second->third = 'Hi!';
 
-this will enable you to discard <I>second leaf value and append to it whatever data structure you like
-note that the default value for the switch is true, like other ones, so
+this will enable you to discard I<second> leaf value and append to it whatever data structure you like. Please note that the default value for the switch is true, like other ones, so
 
     $j->want->run;
 
@@ -422,10 +425,11 @@ call this method to retrieve a named parameter, $jsonp->query(paramenter_name) w
 
 =cut
 
+# TODO remove query method, now it is useless
 sub query
 {
 	my ($self, $param) = @_;
-	$param ? $self->{_params}->{$param} : $self->{_params};
+	$param ? $self->params->{$param} : $self->params;
 }
 
 =head3 plain_json
@@ -521,7 +525,7 @@ call this method in order to return an error message to the calling page. You ca
 sub error
 {
 	my ($self, $message) = @_;
-	$self->{error} = 1;
+	$self->{error} = \1;
 	push @{$self->{errors}}, $message;
 	$self;
 }
@@ -540,8 +544,11 @@ call this method to append a JSON object as a perl subtree on a node. This is a 
 sub graft
 {
 	my ($self, $name, $json) = @_;
-	my $tree = JSON->new->decode($json);
-	$self->$name = $tree;
+	eval{
+		$self->{$name} = JSON->new->utf8->pretty($$self{_debug} // 0)->decode($json);
+	};
+	$self->{$name} = {error => 'failed to parse JSON string', JSON => $json} if $@;
+	$self->_bless_tree($self->{$name});
 	$self;
 }
 
@@ -561,7 +568,7 @@ call this method to serialize and output a subtree:
 sub serialize
 {
 	my ($self) = @_;
-	JSON->new->utf8->allow_blessed->convert_blessed->encode($self);
+	JSON->new->utf8->pretty($$self{_debug} // 0)->allow_blessed->convert_blessed->encode($self);
 }
 
 sub _bless_tree
@@ -605,11 +612,10 @@ sub AUTOLOAD : lvalue
 	die "illegal key name, must be of ([a-zA-Z][a-zA-Z0-9_]* form\n$AUTOLOAD" unless $key;
 	our $_want;
 	# Want::want will be called only if $_want is true, see want method
-	my $val = $_want && defined $_[0]->{$key} && ref $_[0]->{$key} eq '' && Want::want('REF OBJECT');
-	# TODO: recognise case of undef passed as scalar and avoid node creation instead
-	# TODO: enable if possible referencing array indexes without paretheses
+	my $val = $_want && defined $_[0]->{$key} && ref $_[0]->{$key} eq '' && Want::want('SCALAR REF OBJECT');
 	# IMPORTANT NOTE: TRYING TO ASSIGN AN UNDEFINED VALUE TO A KEY WILL RESULT IN NODE CREATION WITH NO LEAFS INSTEAD OF A LEAF WITH UNDEFINED VALUE
-	$_[0]->{$key} = $_[1] || $_[0]->{$key} || bless {}, $classname;
+	# null strings are FALSE in Perl!!!
+	$_[0]->{$key} = $_[1] || $_[0]->{$key} // {};
 	$_[0]->_bless_tree($_[0]->{$key}) if ref $_[0]->{$key} eq 'HASH' || ref $_[0]->{$key} eq 'ARRAY';
 	$_[0]->{$key} = bless {}, $classname if $val;
 	$_[0]->{$key};
@@ -627,7 +633,7 @@ this module requires at least perl 5.8
 
 =head2 DEPENDENCIES
 
-JSON is the only non-core module used by this one, use of JSON::XS is strongly advised for the sake of performance. JSON::XS is been loaded transparently by JSON module when installed.
+JSON is the only non-core module used by this one, use of JSON::XS is strongly advised for the sake of performance. JSON::XS is been loaded transparently by JSON module when installed. Want module usage is optional and used only for leaft-to-node transparent replacing feature, you can load transparently Want module and enable the feature by simply adding C<-E<gt>want> call to the chain of call before C<-E<gt>run>. CGI module is a core one, now deprecated and likely to be removed from core modules in next versions of Perl, will probably remove its usage.
 
 =head1 SECURITY
 
@@ -644,6 +650,13 @@ Remember to always:
 =item 4. use SSL when you are keeping track of sessions
 
 =back
+
+=cut
+
+=head1 HELP and development
+
+the author would be happy to receive suggestions and bug notification. If somebody would like to send code and automated tests for this module, I will be happy to integrate it.
+The code for this module is tracked on this L<GitHub page|https://github.com/ANSI-C/JSONP>.
 
 =cut
 
