@@ -7,7 +7,7 @@ use Digest::SHA;
 use JSON;
 use v5.8;
 #use Want;
-our $VERSION = '0.86';
+our $VERSION = '0.87';
 
 =head1 NAME
 
@@ -510,7 +510,7 @@ sub logout
 		{
 			no strict 'refs';
 			die "given logout function does not exist" unless defined &$map;
-			$self->{_loout_sub} = \&$map;
+			$self->{_logout_sub} = \&$map;
 		}
 	}
 	$self;

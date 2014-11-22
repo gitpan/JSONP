@@ -1,58 +1,61 @@
 Revision history for Perl extension JSONP.
 
+0.87
+	- fixed typo on logout sub member variable when passed by name
+
 0.86
-    - POD documentation updates
+	- POD documentation updates
 
 0.85
-    - found and resolved bug that was returning blessed objects instead of actual leaf value, in special "Want" case, resolved bug about undefined _debug attribute
+	- found and resolved bug that was returning blessed objects instead of actual leaf value, in special "Want" case, resolved bug about undefined _debug attribute
 
 0.84
-    - found and resolved the dreaded bug that was turning null strings in blessed objects, some other code cleanup
+	- found and resolved the dreaded bug that was turning null strings in blessed objects, some other code cleanup
 
 0.83
-    - addition of serialize method, to directly export an object branch into a JSON string
+	- addition of serialize method, to directly export an object branch into a JSON string
 
 0.82
-    - addition of graft method, to directly slurp JSON strings as subtree objects
+	- addition of graft method, to directly slurp JSON strings as subtree objects
 
 0.81
-    - automatic bless upon assignment of array structures too
+	- automatic bless upon assignment of array structures too
 
 0.80
-    - made Want module usage optional
-    - made contructor as lightweight as possible deferring properties settings to last minute
-    - decoupled Want module usage from constructor
-    - automatic bless of trees assigned with lvalue notation
+	- made Want module usage optional
+	- made contructor as lightweight as possible deferring properties settings to last minute
+	- decoupled Want module usage from constructor
+	- automatic bless of trees assigned with lvalue notation
 
 0.79
-    - added lvalue syntax for leaf assignments, leaf-to-node substituction by Want module usage, non-web instantiation
+	- added lvalue syntax for leaf assignments, leaf-to-node substituction by Want module usage, non-web instantiation
 
 0.78
-    - added TO_JSON for booleans and a warnings about using undefs with convenience notation feature
+	- added TO_JSON for booleans and a warnings about using undefs with convenience notation feature
 
 0.77
-    - typo in this very file
+	- typo in this very file
 
 0.76
-    - various bugfixes, addition of logout, html, and sendfile methods. Change on semantics of query method
+	- various bugfixes, addition of logout, html, and sendfile methods. Change on semantics of query method
 
 0.75
-    - various bugfixes
+	- various bugfixes
 
 0.74
-    - fix bug on missing decoding where getting session from auth
+	- fix bug on missing decoding where getting session from auth
 
 0.73
-    - fix returned authentication status upon login (this time for real)
+	- fix returned authentication status upon login (this time for real)
 
 0.72
-    - fix returned authentication status upon login
+	- fix returned authentication status upon login
 
 0.71
-    - fixed typo
+	- fixed typo
 
 0.70
-    - addition of "authenticated" boolean on root of json response    
+	- addition of "authenticated" boolean on root of json response    
 
 0.62
 	- bugfix: aaa was getting called for saving session even if the user is not authenticated
