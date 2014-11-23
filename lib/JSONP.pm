@@ -5,10 +5,10 @@ use Time::HiRes qw(gettimeofday);
 use CGI qw(:cgi -utf8);
 use Digest::SHA;
 use JSON;
-use v5.8;
+use v5.10;
 #use Want;
-#
-our $VERSION = '0.89';
+
+our $VERSION = '0.90';
 
 =encoding utf8
 
@@ -618,7 +618,7 @@ sub AUTOLOAD : lvalue
 	my $val = $_want && defined $_[0]->{$key} && ref $_[0]->{$key} eq '' && Want::want('SCALAR REF OBJECT');
 	# IMPORTANT NOTE: TRYING TO ASSIGN AN UNDEFINED VALUE TO A KEY WILL RESULT IN NODE CREATION WITH NO LEAFS INSTEAD OF A LEAF WITH UNDEFINED VALUE
 	# null strings are FALSE in Perl!!!
-	$_[0]->{$key} = $_[1] || $_[0]->{$key} // {};
+	$_[0]->{$key} = $_[1] // $_[0]->{$key} // {};
 	$_[0]->_bless_tree($_[0]->{$key}) if ref $_[0]->{$key} eq 'HASH' || ref $_[0]->{$key} eq 'ARRAY';
 	$_[0]->{$key} = bless {}, $classname if $val;
 	$_[0]->{$key};

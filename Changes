@@ -1,5 +1,8 @@
 Revision history for Perl extension JSONP.
 
+0.90
+	- accept null strings in autovivification feature when called with functional syntax - drop support to Perl 5.8.x
+
 0.89
 	- version numbers...
 
