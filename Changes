@@ -1,5 +1,11 @@
 Revision history for Perl extension JSONP.
 
+0.89
+	- version numbers...
+
+0.88
+	- corrections to POD syntax
+
 0.87
 	- fixed typo on logout sub member variable when passed by name
 
