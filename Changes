@@ -1,5 +1,8 @@
 Revision history for Perl extension JSONP.
 
+0.92
+	- addition of alternatives syntax for "use VERSION" for stubborn old perl compilers
+
 0.91
 	- management of JSON encoding of JSONP-blessed arrays in tree, allowance of "session" and "params" keys in elements tree deeper than the highest one
 

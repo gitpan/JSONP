@@ -1,4 +1,8 @@
 package JSONP;
+# some older 5.8.x perl versions on exotic platforms don't get the v5.10 syntax
+use 5.010_000;
+use 5.10;
+use v5.10;
 use strict;
 use warnings;
 use utf8;
@@ -6,10 +10,9 @@ use Time::HiRes qw(gettimeofday);
 use CGI qw(:cgi -utf8);
 use Digest::SHA;
 use JSON;
-use v5.10;
 #use Want;
 
-our $VERSION = '0.91';
+our $VERSION = '0.92';
 
 =encoding utf8
 
