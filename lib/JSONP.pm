@@ -12,7 +12,7 @@ use Digest::SHA;
 use JSON;
 #use Want;
 
-our $VERSION = '0.92';
+our $VERSION = '0.93';
 
 =encoding utf8
 
@@ -607,9 +607,9 @@ sub TO_JSON
 	}
 
 	for(keys %$self){
-		# next if $_ !~ /^[a-z]/;
-		next if $_ eq 'session' && $self->{_is_root_element} && ! $self->{_debug};
-		next if $_ eq 'params'  && $self->{_is_root_element} && ! $self->{_debug};
+		next if $_ =~ /^_/;
+		next if $_ eq 'session'	&&   $self->{_is_root_element} && ! $self->{_debug};
+		next if $_ eq 'params'	&&   $self->{_is_root_element} && ! $self->{_debug};
 		$output->{$_} = $self->{$_};
 	}
 	return $output;

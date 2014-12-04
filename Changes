@@ -1,5 +1,8 @@
 Revision history for Perl extension JSONP.
 
+0.93
+	- do not return underscore keys on serialization
+
 0.92
 	- addition of alternatives syntax for "use VERSION" for stubborn old perl compilers
 
