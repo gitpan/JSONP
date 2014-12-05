@@ -1,5 +1,8 @@
 Revision history for Perl extension JSONP.
 
+0.94
+	- trying to get rid of FAILs on perl *BSD perl versions on Perl testers
+
 0.93
 	- do not return underscore keys on serialization
 

@@ -1,7 +1,6 @@
 package JSONP;
 # some older 5.8.x perl versions on exotic platforms don't get the v5.10 syntax
-use 5.010_000;
-use 5.10;
+use 5.010;
 use v5.10;
 use strict;
 use warnings;
@@ -12,7 +11,7 @@ use Digest::SHA;
 use JSON;
 #use Want;
 
-our $VERSION = '0.93';
+our $VERSION = '0.94';
 
 =encoding utf8
 
