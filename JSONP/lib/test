@@ -1,0 +1,128 @@
+#!/usr/bin/perl
+use JSONP;
+use Data::Dumper;
+use warnings;
+
+my $s = 1;
+my $j = JSONP->new->want($s);
+#my $j = JSONP->new;
+
+#=cut
+
+$j->primo = 'ciao ';
+$j->secondo->terzo = 'mondo!';
+print $j->primo, $j->secondo->terzo, "\n";
+
+$j->primo('prova ');
+print $j->primo, $j->secondo->terzo, "\n";
+
+$j->{primo} = 'prova ';
+$j->{secondo}->{terzo} = 'ancora';
+print $j->primo, $j->secondo->terzo, "\n";
+
+$j->primo('prova del nove ');
+$j->secondo->terzo('ragazzo');
+print $j->primo, $j->secondo->terzo, "\n";
+
+#$j->primo->secondo('provolone ');
+#print $j->primo, $j->secondo->terzo, "\n";
+#print $j->primo->secondo, $j->secondo->terzo, "\n";
+#
+#$j->first->second = 9;
+#print $j->first->second, "\n";
+#$j->first->second->third = '10!'; 
+#print $j->first->second, "\n";
+#print $j->first->second->third, "\n";
+
+#=cut
+
+my $obj = {a => 1, b => {c => 3}};
+print "obj ", Dumper $obj, "\n";
+$j->fourth->fifth = $obj;
+#$j->fourth->fifth($obj);
+my $paramextract = $j->fourth->fifth->b;
+print "eureka??? ", $paramextract->c, "\n"; 
+
+print "c: ", $j->fourth->fifth->b->c, "\n";
+$j->fourth->fifth->b->c = 4;
+print "c: ", $j->fourth->fifth->b->c, "\n";
+
+my $array = [{a => 1, b => 2 }, {c => 3, d => 4}];
+print "array: ", Dumper $array, "\n";
+
+$j->testarray->deep = $array;
+print "a dentro primo elemento di array deep ", $j->testarray->deep->[0]->a, "\n";
+print "d dentro secondo elemento di array deep ", $j->testarray->deep->[1]->d, "\n";
+print "b dentro primo elemento di array deep ", $j->testarray->deep->[0]->b, "\n";
+$j->testarray->deep->[0]->b = 9;
+print "b cambiato a 9 dentro primo elemento di array deep ", $j->testarray->deep->[0]->b, "\n";
+
+
+$j->json = 5;
+print "ref a scalar: ", ref($j->json), "\n";
+print $j->json, "\n";
+print $j->json->testme, "\n";
+$j->objson->a = ' {a:5, b:6} ';
+print "blessed string", $j->objson->a, "\n";
+
+print "ref of blessed string: ", ref $j->objson->a, "\n";
+print "method on blessed string: ", $j->objson->a->testme, "\n";
+
+
+$j->name = 'my Perl object';
+$j->subtree->graft('newbranch', '{"name" : "JSON object", "count" : 2}');
+print "subtree name attribute: ", $j->subtree->newbranch->name, "\n"; # will print "JSON object"
+print Dumper($j->subtree->newbranch->name), "\n";
+
+$j->sublist->graft('newbranch', '[{"name" : "first one"}, {"name" : "second one"}]');
+print "sublist second item name attribute: ", $j->sublist->newbranch->[1]->name, "\n"; # will print "second one"
+
+$j->subtree->newbranchname->graft('subsubtree', '{"name" : "some string", "count" : 4}');
+print "serialize method test: ", $j->subtree->newbranchname->subsubtree->serialize, q| - should print '{"name" : "some string", "count" : 4}'|, "\n"; # will print '{"name" : "some string", "count" : 4}' 
+
+$j->mybooleans->true = \1;
+$j->mybooleans->false = \0;
+$j->mybooleans->functionnotation->true(\1);
+$j->mybooleans->functionnotation->false(\0);
+
+my $jsons = $j->mybooleans->serialize;
+print "$jsons\n";
+
+print "true\n" if ${$j->mybooleans->true};
+print "false\n" unless ${$j->mybooleans->false};
+
+$j->girettoingito->graft('bollito', $jsons);
+print $j->girettoingito->bollito->functionnotation->true, "n";
+print Dumper  $j->girettoingito;
+
+my %vars;
+$vars{username} = 'anselmo';
+$vars{password} = '123456';
+
+$j->params = \%vars;
+
+print $j->params->username, "\n";
+print $j->params->password, "\n";
+
+$j->myundef = undef;
+
+print "my undef: ", $j->myundef, "\n";
+print "my undef: ", Dumper($j->myundef), "\n";
+my $nullstring = ' ';
+
+print "is nullstring true? ", !!$nullstring, "\n";
+
+
+
+$j->askallonisi = '';
+print "è la stringa nulla???? ", $j->askallonisi, "\n";
+
+my $or = '' || 'accidenti!!!';
+print $or, "\n";
+
+
+my $stringanulla = ' ';
+print $stringanulla ? 'vero' : 'falso';
+
+
+

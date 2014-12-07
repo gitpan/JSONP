@@ -11,7 +11,7 @@ use Digest::SHA;
 use JSON;
 #use Want;
 
-our $VERSION = '0.94';
+our $VERSION = '0.95';
 
 =encoding utf8
 
@@ -598,17 +598,18 @@ sub TO_JSON
 	return 'true'  if ref $self eq 'SCALAR' && $$self == 1;
 	return 'false' if ref $self eq 'SCALAR' && $$self == 0;
 	my $output;
+	my @keys;
 
-	eval {my @test = keys %$self;};
+	eval {@keys = keys %$self;};
 	if($@){
 		push @$output, $_ for @$self;
 		return $output;
 	}
 
-	for(keys %$self){
-		next if $_ =~ /^_/;
-		next if $_ eq 'session'	&&   $self->{_is_root_element} && ! $self->{_debug};
-		next if $_ eq 'params'	&&   $self->{_is_root_element} && ! $self->{_debug};
+	for(@keys){
+		next if $_ =~ /^_/	&& !($self->{_is_root_element} &&	$self->{_debug});
+		next if $_ eq 'session'	&&   $self->{_is_root_element} && ! 	$self->{_debug};
+		next if $_ eq 'params'	&&   $self->{_is_root_element} && ! 	$self->{_debug};
 		$output->{$_} = $self->{$_};
 	}
 	return $output;
@@ -622,7 +623,7 @@ sub AUTOLOAD : lvalue
 	my $classname =  ref $_[0];
 	our $AUTOLOAD =~ /^${classname}::([a-zA-Z][a-zA-Z0-9_]*)$/;
 	my $key = $1;
-	die "illegal key name, must be of ([a-zA-Z][a-zA-Z0-9_]* form\n$AUTOLOAD" unless $key;
+	die "illegal key name, must be of [a-zA-Z][a-zA-Z0-9_]* form\n$AUTOLOAD" unless $key;
 	our $_want;
 	# Want::want will be called only if $_want is true, see want method
 	my $val = $_want && defined $_[0]->{$key} && ref $_[0]->{$key} eq '' && Want::want('SCALAR REF OBJECT');

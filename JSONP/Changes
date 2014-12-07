@@ -1,5 +1,8 @@
 Revision history for Perl extension JSONP.
 
+0.95
+	- updated dependencies on Makefile, allow root object "private" attributes (beginning with underscore) to be serialized when debug is active
+
 0.94
 	- trying to get rid of FAILs on perl *BSD perl versions on Perl testers
 
