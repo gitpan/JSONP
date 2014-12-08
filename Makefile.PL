@@ -7,8 +7,8 @@ WriteMakefile(
     NAME              => 'JSONP',
     VERSION_FROM      => 'lib/JSONP.pm', # finds $VERSION
     PREREQ_PM         => {
-	    CGI		=> 3.50,
-	    JSON	=> 2.52,
+	    CGI		=> 0,
+	    JSON	=> 0,
 	    Time::HiRes	=> 0,
 	    Digest::SHA	=> 0,
     },

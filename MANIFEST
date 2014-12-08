@@ -1,6 +1,7 @@
 Changes
 Makefile.PL
 MANIFEST
+LICENSE
 README
 t/JSONP.t
-lib/JSONP.pm
+lib/JSONP/JSONP.pm

@@ -1,7 +1,0 @@
-#!/usr/bin/perl
-use JSON;
-
-my $j = JSON->new->pretty;
-
-my $struct = {a => 1, b =>2, c => \0};
-print $j->encode($struct);
