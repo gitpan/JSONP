@@ -11,7 +11,7 @@ use Digest::SHA;
 use JSON;
 #use Want;
 
-our $VERSION = '0.96';
+our $VERSION = '0.97';
 
 =encoding utf8
 
