@@ -1,5 +1,8 @@
 Revision history for Perl extension JSONP.
 
+0.98
+	- updated POD documentation - added module Want as dependency
+
 0.97
 	- use ExtUtils::MakeMaker for ditribution build
 

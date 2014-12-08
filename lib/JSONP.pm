@@ -11,7 +11,7 @@ use Digest::SHA;
 use JSON;
 #use Want;
 
-our $VERSION = '0.97';
+our $VERSION = '0.98';
 
 =encoding utf8
 
@@ -151,8 +151,37 @@ you can insert also array at any level of structure  and the nodes (hashrefs) wi
 	print $jsonp->first->second->[0]->a; # will print 9 now
 
 you can almost freely interleave above listed styles in order to access to elements of JSONP object. As usual, respect I<_private> variables if you don't know what you are doing. One value-leaf/object-node element set by the convenience notation shortcut will be read by normal hash access syntax, be aware that if you set a node/leaf with the traditional syntax, elements deeper that first one cannot be read via the convenience arrow-only feature. So it is a good practice to always use the convenience feature unless you have very specific needs and know and understand what you are doing.
+You can delete elements from the hash tree, though it is not supported via the convenience notation. You can use it, but the last node has to be referenced via braces notation:
+
+	my $j = JSONP->new;
+	$j->firstnode->a = 5;
+	$j->firstnode->b = 9;
+	$j->secondnode->thirdnode->a = 7;
+	delete $j->secondnode->{thirdnode}; # will delete thirdnode as expected in hash structures.
+
+TODO: will investigate if possible to implement deletion using exclusively the convenience notation feature.
 
 IMPORTANT NOTE: while using the convenience notation without braces you B<must> B<never> pass B<I<undef>>ined values, because this will result in creation of a node instead of a leaf as intended.
+
+IMPORTANT NOTE 2: remember that all the method names of the module cannot be used as key names via convenience notation feature, at any level of the response tree. You can set such key names anyway by using the braces notation. To retrieve their value, you will need to use the brace notation for the node that has the key equal to a native method name of this very module. It is advisable to assign the branch that contains them to an higher level node:
+
+	my $j = JSONP->new;
+	$j->firstnode = 5;
+	my $branch = {};
+	$branch->{debug} = 0; # debug is a native method name
+	$branch->{serialize} = 1; # serialize is a native method name
+	$j->secondnode = $branch; # $branch structure will be grafted and relative nodes blessed accordingly
+	say $j->secondnode->{serialize}; # will print 1
+
+NOTE: in order to get a "pretty print" via serialize method you will need to call debug before serialize, if you want to serialize a deeper branch than the root one:
+
+	my $j = JSONP->new->debug;
+        $j->firstnode->a = 5;
+        $j->firstnode->b = 9;
+        $j->secondnode->thirdnode->a = 7;
+	my $pretty = $j->serialize; # will get a pretty print
+	my $deepser = $j->firstnode->serialize; # won't get a pretty print, because deeper than root
+	my $prettydeepser = $j->firstnode->debug->serialize; # will get a pretty print, becuase we called debug first
 
 WARNING: YOU CAN DO THIS ONLY IF YOU LOAD THE Want MODULE! :
 
