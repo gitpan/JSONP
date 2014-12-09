@@ -6,12 +6,13 @@ use strict;
 use warnings;
 use utf8;
 use Time::HiRes qw(gettimeofday);
+use Scalar::Util qw(reftype);
 use CGI qw(:cgi -utf8);
 use Digest::SHA;
 use JSON;
-#use Want;
+use Want;
 
-our $VERSION = '0.98';
+our $VERSION = '0.99';
 
 =encoding utf8
 
@@ -183,16 +184,16 @@ NOTE: in order to get a "pretty print" via serialize method you will need to cal
 	my $deepser = $j->firstnode->serialize; # won't get a pretty print, because deeper than root
 	my $prettydeepser = $j->firstnode->debug->serialize; # will get a pretty print, becuase we called debug first
 
-WARNING: YOU CAN DO THIS ONLY IF YOU LOAD THE Want MODULE! :
+NOTE: you can even replace a leaf with a new node:
 
-	$jsonp->first(5);
-	$jsonp->first->second('something'); # Internal Server Error / runtime error here, unless you call the want method upon object creation
+	$j->first = 9;
 
-so:
+	... do some things
 
-	local our $jsonp = JSONP->new->want;
+	$j->first->second = 9;
+	$j->first->second->third = 'Hi!';
 
-if you want to be able to change leafs in new nodes. the C<-E<gt>want> call will load the optionally used Want module. Of course you must have Want module installed in your system.
+this will enable you to discard I<second> leaf value and append to it whatever data structure you like.
 
 =head1 DESCRIPTION
 
@@ -277,7 +278,7 @@ sub run
 
 	my $map = caller() . '::' . $req;
 	my $session = $self->{_aaa_sub}->($sid);
-	$self->{_authenticated} = !!$session;
+	$self->{_authenticated} = ! ! $session;
 	if($self->{_authenticated}){
 		$self->graft('session', $session)
 	} else {
@@ -286,7 +287,7 @@ sub run
 
 	$$self{_cgi} = $r;
 
-	if (!!$session && defined &$map || \&$map == $self->{_login_sub}) {
+	if (! ! $session && defined &$map || \&$map == $self->{_login_sub}) {
 		eval {
 			no strict 'refs';
 			my $outcome = &$map($sid);
@@ -389,40 +390,8 @@ sub debug
 {
 	my ($self, $switch) = @_;
 	$switch = 1 unless defined $switch;
-	$switch = !!$switch;
+	$switch = ! ! $switch;
 	$self->{_debug} = $switch;
-	$self;
-}
-
-=head3 want
-
-this method will enable/disable the import of optional dependency module I<Want> to enable leaf values transformation in node without causing runtime errors. This will get working the following code instead of give a runtime error:
-
-	$j->first = 9;
-
-	... do some things
-
-	$j->first->second = 9;
-	$j->first->second->third = 'Hi!';
-
-this will enable you to discard I<second> leaf value and append to it whatever data structure you like. Please note that the default value for the switch is true, like other ones, so
-
-	$j->want->run;
-
-is the same as:
-
-	$j->want(1)->run;
-
-this method is chainable as others are.
-
-=cut
-
-sub want
-{
-	my ($self, $switch) = @_;
-	$switch = 1 unless defined $switch;
-	our $_want = !!$switch;
-	require Want if $_want;
 	$self;
 }
 
@@ -436,7 +405,7 @@ sub insecure
 {
 	my ($self, $switch) = @_;
 	$switch = 1 unless defined $switch;
-	$switch = !!$switch;
+	$switch = ! ! $switch;
 	$self->{_insecure_session} = $switch;
 	$self;
 }
@@ -477,7 +446,7 @@ sub plain_json
 {
 	my ($self, $switch) = @_;
 	$switch = 1 unless defined $switch;
-	$switch = !!$switch;
+	$switch = ! ! $switch;
 	$self->{_plain_json} = $switch;
 	$self;
 }
@@ -574,17 +543,57 @@ call this method to append a JSON object as a perl subtree on a node. This is a 
 	$j->sublist->graft->('newbranchname', '[{"name" : "first one"}, {"name" : "second one"}]');
 	print $j->sublist->newbranchname->[1]->name; will print "second one"
 
+This method will return the reference to the newly added element if added successfully, a false value otherwise.
+
 =cut
 
 sub graft
 {
 	my ($self, $name, $json) = @_;
+
 	eval{
-		$self->{$name} = JSON->new->utf8->pretty($$self{_debug} // 0)->decode($json);
+		$self->{$name} = JSON->new->utf8->decode($json);
 	};
-	$self->{$name} = {error => 'failed to parse JSON string', JSON => $json} if $@;
+
+	return 0 if $@;
+
+	#_bless_tree returns the node passed to it blessed as JSONP
 	$self->_bless_tree($self->{$name});
-	$self;
+}
+
+=head3 stack
+
+call this method to add a JSON object to a node-array. This is a native method, only function notation is supported, lvalue assignment notation is reserved to autovivification shortcut feature. Examples:
+
+	$j->first->second = [{a => 1}, {b = 2}];
+	$j->stack('{"c":"3"}');
+	say $j->first->second->[2]->c; # will print 3;
+
+this method of course works only with nodes that are arrays. Be warned that the decoded JSON string will be added as B<element> to the array, so depending of the JSON string you pass, you can have an element that is an hashref (another "node"), a scalar (a "value") or an arrayref (array of arrays, if you want). This method will return the reference to the newly added element if added successfully, a false value otherwise. Combining this to graft method you can do crazy things like this:
+
+	my $j = JSONP->new;
+	$j->firstnode->graft('secondnode', '{"a" : 1}')->thirdnode = [];
+	$j->firstnode->secondnode->thirdnode->stack('{"b" : 9}')->fourthnode = 10;
+	say $j->firstnode->secondnode->a; # will print 1
+	say $j->firstnode->secondnode->thirdnode->[0]->b; # will print 9
+	say $j->firstnode->secondnode->thirdnode->[0]->fourthnode; # will print 10
+
+=cut
+
+sub stack
+{
+	my ($self, $json) = @_;
+
+	return 0 unless reftype $self eq 'ARRAY';
+
+	eval{
+		push @$self, JSON->new->utf8->decode($json);
+	};
+	say $@;
+	return 0 if $@;
+
+	#_bless_tree returns the node passed to it blessed as JSONP
+	$self->_bless_tree($self->[$#{$self}]);
 }
 
 =head3 serialize
@@ -619,6 +628,7 @@ sub _bless_tree
 	if ($isarray){
 		$self->_bless_tree($_) for @$node;
 	}
+	$node;
 }
 
 sub TO_JSON
@@ -627,15 +637,13 @@ sub TO_JSON
 	return 'true'  if ref $self eq 'SCALAR' && $$self == 1;
 	return 'false' if ref $self eq 'SCALAR' && $$self == 0;
 	my $output;
-	my @keys;
 
-	eval {@keys = keys %$self;};
-	if($@){
+	if(reftype $self eq 'ARRAY'){
 		push @$output, $_ for @$self;
 		return $output;
 	}
 
-	for(@keys){
+	for(keys %$self){
 		next if $_ =~ /^_/	&& !($self->{_is_root_element} &&	$self->{_debug});
 		next if $_ eq 'session'	&&   $self->{_is_root_element} && ! 	$self->{_debug};
 		next if $_ eq 'params'	&&   $self->{_is_root_element} && ! 	$self->{_debug};
@@ -653,11 +661,8 @@ sub AUTOLOAD : lvalue
 	our $AUTOLOAD =~ /^${classname}::([a-zA-Z][a-zA-Z0-9_]*)$/;
 	my $key = $1;
 	die "illegal key name, must be of [a-zA-Z][a-zA-Z0-9_]* form\n$AUTOLOAD" unless $key;
-	our $_want;
-	# Want::want will be called only if $_want is true, see want method
-	my $val = $_want && defined $_[0]->{$key} && ref $_[0]->{$key} eq '' && Want::want('SCALAR REF OBJECT');
+	my $val = defined $_[0]->{$key} && ref $_[0]->{$key} eq '' && Want::want('SCALAR REF OBJECT');
 	# IMPORTANT NOTE: TRYING TO ASSIGN AN UNDEFINED VALUE TO A KEY WILL RESULT IN NODE CREATION WITH NO LEAFS INSTEAD OF A LEAF WITH UNDEFINED VALUE
-	# null strings are FALSE in Perl!!!
 	$_[0]->{$key} = $_[1] // $_[0]->{$key} // {};
 	$_[0]->_bless_tree($_[0]->{$key}) if ref $_[0]->{$key} eq 'HASH' || ref $_[0]->{$key} eq 'ARRAY';
 	$_[0]->{$key} = bless {}, $classname if $val;
@@ -676,7 +681,7 @@ this module requires at least perl 5.10 for its usage of "defined or" // operato
 
 =head2 DEPENDENCIES
 
-JSON is the only non-core module used by this one, use of JSON::XS is strongly advised for the sake of performance. JSON::XS is been loaded transparently by JSON module when installed. Want module usage is optional and used only for leaft-to-node transparent replacing feature, you can load transparently Want module and enable the feature by simply adding C<-E<gt>want> call to the chain of call before C<-E<gt>run>. CGI module is a core one, now deprecated and likely to be removed from core modules in next versions of Perl, will probably remove its usage.
+JSON and Want are the only non-core module used by this one, use of JSON::XS is strongly advised for the sake of performance. JSON::XS is been loaded transparently by JSON module when installed. CGI module is a core one at the moment of writing, but deprecated and likely to be removed from core modules in next versions of Perl.
 
 =head1 SECURITY
 
@@ -698,6 +703,11 @@ Remember to always:
 
 the author would be happy to receive suggestions and bug notification. If somebody would like to send code and automated tests for this module, I will be happy to integrate it.
 The code for this module is tracked on this L<GitHub page|https://github.com/ANSI-C/JSONP>.
+
+=head1 LICENSE AND COPYRIGHT
+
+Copyright 2014-2015 by Anselmo Canfora.
+This library is free software and is distributed under same terms as Perl itself.
 
 =cut
 

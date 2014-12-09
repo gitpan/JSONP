@@ -1,5 +1,8 @@
 Revision history for Perl extension JSONP.
 
+0.99
+	- introduced dependency from Scalar::Utils for better performance, added stack method, updated license information in POD, added min perl version in Makefile
+
 0.98
 	- updated POD documentation - added module Want as dependency
 

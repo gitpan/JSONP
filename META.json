@@ -35,11 +35,13 @@
             "CGI" : "0",
             "Digest::SHA" : "0",
             "JSON" : "0",
+            "Scalar::Utils" : "0",
             "Time::HiRes" : "0",
-            "Want" : "0"
+            "Want" : "0",
+            "perl" : "0"
          }
       }
    },
    "release_status" : "stable",
-   "version" : "0.98"
+   "version" : "0.99"
 }

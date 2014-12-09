@@ -21,6 +21,8 @@ requires:
   CGI: 0
   Digest::SHA: 0
   JSON: 0
+  Scalar::Utils: 0
   Time::HiRes: 0
   Want: 0
-version: 0.98
+  perl: 0
+version: 0.99
