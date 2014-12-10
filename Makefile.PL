@@ -5,7 +5,7 @@ use ExtUtils::MakeMaker;
 # the contents of the Makefile that is written.
 WriteMakefile(
 	NAME		=> 'JSONP',
-	VERSION_FROM	=> 'lib/JSONP.pm', # finds $VERSION
+	VERSION_FROM	=> 'lib/JSONP.pm',
 	LICENSE		=> 'perl_5',
 	PREREQ_PM		=> {
 		CGI		=> 0,
@@ -17,7 +17,7 @@ WriteMakefile(
 	},
 	($] >= 5.005 ?     ## Add these new keywords supported since 5.005
 		(
-			ABSTRACT_FROM		=> 'lib/JSONP.pm', # retrieve abstract from module
+			ABSTRACT_FROM		=> 'lib/JSONP.pm',
 			AUTHOR			=> 'Anselmo Canfora <acanfora@cpan.org>',
 			MIN_PERL_VERSION	=> 5.10.0
 		) : ()

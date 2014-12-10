@@ -1,5 +1,8 @@
 Revision history for Perl extension JSONP.
 
+1.0
+	- fix regression causing HTTP 500 because references to login and aaa sub were not skipped during serialization
+
 0.99
 	- introduced dependency from Scalar::Utils for better performance, added stack method, updated license information in POD, added min perl version in Makefile
 

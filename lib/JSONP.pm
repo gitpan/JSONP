@@ -12,7 +12,7 @@ use Digest::SHA;
 use JSON;
 use Want;
 
-our $VERSION = '0.99';
+our $VERSION = '1.0';
 
 =encoding utf8
 
@@ -607,6 +607,12 @@ call this method to serialize and output a subtree:
 	$j->subtree->newbranchname->graft('subtree', '{"name" : "some string", "count" : 4}');
 	print $j->subtree->newbranchname->subtree->serialize; # will print '{"name" : "some string", "count" : 4}' 
 
+IMPORTANT NOTE: do not assign any reference to a sub to any node, example:
+
+	$j->donotthis = sub { ... };
+
+for now the module does assume that nodes/leafs will be scalars/hashes/arrays, so same thing is valid for filehandles.
+
 =cut
 
 sub serialize
@@ -644,9 +650,15 @@ sub TO_JSON
 	}
 
 	for(keys %$self){
-		next if $_ =~ /^_/	&& !($self->{_is_root_element} &&	$self->{_debug});
-		next if $_ eq 'session'	&&   $self->{_is_root_element} && ! 	$self->{_debug};
-		next if $_ eq 'params'	&&   $self->{_is_root_element} && ! 	$self->{_debug};
+		my $skip;
+		my $nodebug = ! $self->{_debug};
+		if($self->{_is_root_element}){
+			$skip++ if $_ =~ /_sub$/;
+			$skip++ if $_ eq 'session' && $nodebug;
+			$skip++ if $_ eq 'params'  && $nodebug;
+		}
+		$skip++ if $_ =~ /^_/ && $nodebug;
+		next if $skip;
 		$output->{$_} = $self->{$_};
 	}
 	return $output;
