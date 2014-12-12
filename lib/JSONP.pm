@@ -7,12 +7,12 @@ use warnings;
 use utf8;
 use Time::HiRes qw(gettimeofday);
 use Scalar::Util qw(reftype);
-use CGI qw(:cgi -utf8);
+use CGI qw(-utf8);
 use Digest::SHA;
 use JSON;
 use Want;
 
-our $VERSION = '1.0';
+our $VERSION = '1.1';
 
 =encoding utf8
 
@@ -566,7 +566,7 @@ sub graft
 call this method to add a JSON object to a node-array. This is a native method, only function notation is supported, lvalue assignment notation is reserved to autovivification shortcut feature. Examples:
 
 	$j->first->second = [{a => 1}, {b = 2}];
-	$j->stack('{"c":"3"}');
+	$j->first->second->stack('{"c":"3"}');
 	say $j->first->second->[2]->c; # will print 3;
 
 this method of course works only with nodes that are arrays. Be warned that the decoded JSON string will be added as B<element> to the array, so depending of the JSON string you pass, you can have an element that is an hashref (another "node"), a scalar (a "value") or an arrayref (array of arrays, if you want). This method will return the reference to the newly added element if added successfully, a false value otherwise. Combining this to graft method you can do crazy things like this:
@@ -589,7 +589,41 @@ sub stack
 	eval{
 		push @$self, JSON->new->utf8->decode($json);
 	};
-	say $@;
+	return 0 if $@;
+
+	#_bless_tree returns the node passed to it blessed as JSONP
+	$self->_bless_tree($self->[$#{$self}]);
+}
+
+=head3 append
+
+call this method to add a Perl object to a node-array. This is a native method, only function notation is supported, lvalue assignment notation is reserved to autovivification shortcut feature. Examples:
+
+	$j->first->second = [{a => 1}, {b = 2}];
+	$j->first->second->append({c => 3});
+	say $j->first->second->[2]->c; # will print 3;
+
+this method of course works only with nodes that are arrays. Be warned that the element will be added as B<element> to the array, so depending of the element you pass, you can have an element that is an hashref (another "node"), a scalar (a "value") or an arrayref (array of arrays, if you want). This method will return the reference to the newly added element if added successfully, a false value otherwise. You can do crazy things like this:
+
+	my $j = JSONP->new;
+	$j->firstnode->secondnode->a = 1;
+	$j->firstnode->secondnode->thirdnode = [];
+	$j->firstnode->secondnode->thirdnode->append({b => 9})->fourthnode = 10;
+	say $j->firstnode->secondnode->a; # will print 1
+	say $j->firstnode->secondnode->thirdnode->[0]->b; # will print 9
+	say $j->firstnode->secondnode->thirdnode->[0]->fourthnode; # will print 10
+
+=cut
+
+sub append
+{
+	my ($self, $el) = @_;
+
+	return 0 unless reftype $self eq 'ARRAY';
+
+	eval{
+		push @$self, $el;
+	};
 	return 0 if $@;
 
 	#_bless_tree returns the node passed to it blessed as JSONP

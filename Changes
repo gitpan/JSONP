@@ -1,5 +1,8 @@
 Revision history for Perl extension JSONP.
 
+1.1
+	- addition of "append" method, removal of imported methods from CGI
+
 1.0
 	- fix regression causing HTTP 500 because references to login and aaa sub were not skipped during serialization
 

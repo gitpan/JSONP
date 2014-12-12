@@ -13,7 +13,7 @@ WriteMakefile(
 		Want		=> 0,
 		Time::HiRes	=> 0,
 		Digest::SHA	=> 0,
-		Scalar::Utils	=> 0,
+		Scalar::Util	=> 0,
 	},
 	($] >= 5.005 ?     ## Add these new keywords supported since 5.005
 		(
