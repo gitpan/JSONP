@@ -7,6 +7,9 @@ WriteMakefile(
 	NAME		=> 'JSONP',
 	VERSION_FROM	=> 'lib/JSONP.pm',
 	LICENSE		=> 'perl_5',
+	ABSTRACT_FROM		=> 'lib/JSONP.pm',
+	AUTHOR			=> 'Anselmo Canfora <acanfora@cpan.org>',
+	MIN_PERL_VERSION	=> 5.010,
 	PREREQ_PM		=> {
 		CGI		=> 0,
 		JSON		=> 0,
@@ -15,11 +18,4 @@ WriteMakefile(
 		Digest::SHA	=> 0,
 		Scalar::Util	=> 0,
 	},
-	($] >= 5.005 ?     ## Add these new keywords supported since 5.005
-		(
-			ABSTRACT_FROM		=> 'lib/JSONP.pm',
-			AUTHOR			=> 'Anselmo Canfora <acanfora@cpan.org>',
-			MIN_PERL_VERSION	=> 5.10.0
-		) : ()
-	),
 );
